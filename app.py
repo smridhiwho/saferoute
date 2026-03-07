@@ -386,4 +386,4 @@ if __name__ == "__main__":
     print(f"\n  SafeRoute running at http://localhost:{port}")
     print(f"  Open your browser to http://localhost:{port}\n")
     debug = os.environ.get("FLASK_ENV", "production") == "development"
-    app.run(port=port, debug=debug, use_reloader=False)
+    app.run(host="0.0.0.0", port=port, debug=debug, use_reloader=False)
