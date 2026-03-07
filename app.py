@@ -382,7 +382,7 @@ No explanation, only JSON."""
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("FLASK_PORT", 5001))
+    port = int(os.environ.get("PORT", os.environ.get("FLASK_PORT", 5001)))
     print(f"\n  SafeRoute running at http://localhost:{port}")
     print(f"  Open your browser to http://localhost:{port}\n")
     debug = os.environ.get("FLASK_ENV", "production") == "development"
