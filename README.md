@@ -35,19 +35,19 @@ Open http://localhost:5001
 
 | Feature | Status |
 |---------|--------|
-| Real Safecity dataset loading | pending |
-| Safety score engine | pending |
-| ORS route fetching (3 alternatives) | pending |
-| Route comparison map | pending |
-| Per-segment safety coloring | pending |
-| Incident heatmap overlay | pending |
-| Incident reporting (SQLite) | pending |
-| Groq AI safety advisories | pending |
-| Dashboard stats | pending |
-| WhatsApp bot simulator | pending |
+| Real Safecity dataset loading | done |
+| Safety score engine | done |
+| ORS route fetching (3 alternatives) | done |
+| Route comparison map | done |
+| Per-segment safety coloring | done |
+| Incident heatmap overlay | done |
+| Incident reporting (SQLite) | done |
+| Groq AI safety advisories | done |
+| Dashboard stats | done |
+| WhatsApp bot simulator | done |
 
 ## Sprint 2 (next)
-- [ ] Twilio WhatsApp webhook (real WhatsApp integration)
+- [ ] WhatsApp webhook (real WhatsApp integration)
 - [ ] NCRB district-level crime data layer
 - [ ] User accounts + report history
 - [ ] Email/WhatsApp waitlist integration
