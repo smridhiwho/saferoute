@@ -70,7 +70,8 @@ def get_routes(
                 "weight_factor": 1.6,
                 "share_factor": 0.6,
             },
-            "instructions": False,
+            "instructions": True,
+            "instructions_format": "text",
             "geometry": True,
         }
         r = requests.post(
@@ -89,9 +90,22 @@ def get_routes(
         for i, feature in enumerate(data.get("features", [])):
             summary = feature["properties"]["summary"]
             coords = feature["geometry"]["coordinates"]  # [[lng, lat], ...]
+            # Extract turn-by-turn steps
+            steps = []
+            for seg in feature["properties"].get("segments", []):
+                for step in seg.get("steps", []):
+                    steps.append({
+                        "instruction": step.get("instruction", ""),
+                        "name": step.get("name", ""),
+                        "distance": step.get("distance", 0),
+                        "duration": step.get("duration", 0),
+                        "type": step.get("type", 0),
+                        "way_points": step.get("way_points", []),
+                    })
             routes.append({
                 "index": i,
                 "coords": coords,
+                "steps": steps,
                 "distance_m": round(summary.get("distance", 0)),
                 "duration_s": round(summary.get("duration", 0)),
                 "distance_km": round(summary.get("distance", 0) / 1000, 2),

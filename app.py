@@ -157,6 +157,7 @@ def get_route():
         scored.update({
             "route_index": route_data["index"],
             "coords": route_data["coords"],
+            "steps": route_data.get("steps", []),
             "distance_km": route_data["distance_km"],
             "distance_m": route_data["distance_m"],
             "duration_min": route_data["duration_min"],

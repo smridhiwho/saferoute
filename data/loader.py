@@ -183,17 +183,28 @@ def geocode_description(text: str, seed: int = 0):
     return round(lat, 6), round(lng, 6), matched_key
 
 # ── Load Safecity CSV from GitHub ────────────────────────────────────────────
-SAFECITY_CSV_URL = (
-    "https://raw.githubusercontent.com/swkarlekar/safecity/master/1_Dataset/safecity_all.csv"
-)
+SAFECITY_CSV_URLS = [
+    "https://raw.githubusercontent.com/swkarlekar/safecity/master/1_Dataset/train_data.csv",
+    "https://raw.githubusercontent.com/swkarlekar/safecity/master/1_Dataset/test_data.csv",
+    "https://raw.githubusercontent.com/swkarlekar/safecity/master/1_Dataset/dev_data.csv",
+]
+
 
 def load_safecity_from_github() -> pd.DataFrame:
-    """Download and parse the Safecity CSV from GitHub."""
     import requests
     print("  Fetching Safecity dataset from GitHub...")
-    r = requests.get(SAFECITY_CSV_URL, timeout=15)
-    r.raise_for_status()
-    df = pd.read_csv(io.StringIO(r.text))
+    frames = []
+    for url in SAFECITY_CSV_URLS:
+        try:
+            r = requests.get(url, timeout=15)
+            r.raise_for_status()
+            frames.append(pd.read_csv(io.StringIO(r.text)))
+            print(f"  Loaded {url.split('/')[-1]}")
+        except Exception as e:
+            print(f"  Skipped {url.split('/')[-1]}: {e}")
+    if not frames:
+        raise Exception("All CSV URLs failed")
+    df = pd.concat(frames, ignore_index=True)
     print(f"  Downloaded {len(df)} raw Safecity records.")
     return df
 
