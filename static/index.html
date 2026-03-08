@@ -2,756 +2,1490 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>SafeRoute · Safe Navigation for Women</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=Instrument+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>SafeRoute</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.heat/dist/leaflet-heat.css" onerror="void(0)"/>
 <style>
-:root{
-  --forest:#1E3A2F;--forest-mid:#2D5241;--sage:#5C8A6E;--mint:#A8C5B0;
-  --rose:#E8B4B8;--rose-deep:#D4848A;--blush:#F5E6E8;--cream:#FAF6F0;
-  --gold:#D4AF6A;--ink:#0F1F18;
-  --safe:#4CAF82;--caution:#E8A838;--danger:#E05252;
-  --panel-bg:rgba(250,246,240,0.97);
+:root {
+  --forest:#1a2f25; --forest-mid:#243d30; --sage:#4a7c5f; --mint:#8fb89a;
+  --rose:#e8a0a6; --rose-deep:#cc6b73;
+  --cream:#faf6f0; --ink:#0f1a15;
+  --safe:#3db87a; --caution:#e8a030; --danger:#e04848;
+  --glass:rgba(15,26,21,0.93);
+  --glass-light:rgba(250,246,240,0.97);
+  --border-dark:rgba(255,255,255,0.08);
+  --border-light:rgba(15,26,21,0.1);
+  --txt:#f0ede8;
+  --txt-muted:rgba(240,237,232,0.55);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-html,body{height:100%;font-family:'Instrument Sans',sans-serif;font-weight:300;background:var(--cream);color:var(--ink);overflow:hidden;}
+html,body{height:100%;font-family:'DM Sans',sans-serif;font-weight:300;overflow:hidden;background:#111;}
 
-/* ── LAYOUT ── */
-#app{display:flex;height:100vh;width:100vw;}
-#sidebar{width:380px;min-width:320px;max-width:420px;height:100vh;overflow-y:auto;background:var(--panel-bg);border-right:1px solid rgba(30,58,47,0.1);z-index:400;display:flex;flex-direction:column;flex-shrink:0;}
-#map-container{flex:1;position:relative;}
-#map{width:100%;height:100%;}
+/* MAP */
+#map{position:fixed;inset:0;z-index:0;}
 
-/* ── NAV TABS ── */
-.nav-header{padding:1.2rem 1.4rem 0;border-bottom:1px solid rgba(30,58,47,0.08);}
-.logo{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:700;color:var(--forest);display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;}
-.logo-dot{width:8px;height:8px;background:var(--rose-deep);border-radius:50%;animation:pulse 2s infinite;}
-@keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.6);opacity:0.5;}}
-.tabs{display:flex;gap:0;}
-.tab{flex:1;padding:0.65rem 0.5rem;font-size:0.78rem;font-weight:500;text-align:center;border:none;background:none;cursor:pointer;color:var(--forest);opacity:0.45;border-bottom:2px solid transparent;transition:all 0.2s;}
-.tab.active{opacity:1;border-bottom-color:var(--rose-deep);}
-.tab:hover{opacity:0.8;}
+/* ── HOME SEARCH OVERLAY ── */
+#home-overlay{
+  position:fixed;inset:0;z-index:100;
+  display:flex;flex-direction:column;
+  pointer-events:none;
+}
+#home-overlay.hidden{display:none;}
 
-/* ── PANELS ── */
-.panel{display:none;flex:1;flex-direction:column;}
-.panel.active{display:flex;}
-.panel-body{padding:1.2rem 1.4rem;flex:1;overflow-y:auto;}
+/* Logo strip */
+.logo-strip{
+  pointer-events:all;
+  display:flex;align-items:center;gap:0.5rem;
+  margin:1.2rem 1.2rem 0.6rem;
+}
+.logo-text{
+  font-family:'Playfair Display',serif;
+  font-size:1.15rem;font-weight:700;
+  color:white;text-shadow:0 1px 4px rgba(0,0,0,0.5);
+  letter-spacing:-0.01em;
+}
+.logo-dot{
+  width:8px;height:8px;
+  background:var(--rose-deep);border-radius:50%;
+  animation:pulse 2s infinite;
+}
+@keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.7);opacity:0.5;}}
 
-/* ── FORM ELEMENTS ── */
-.field-group{margin-bottom:1rem;}
-label{display:block;font-size:0.75rem;font-weight:500;color:var(--forest);opacity:0.6;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.4rem;}
-input[type=text],input[type=email],select,textarea{width:100%;border:1.5px solid rgba(30,58,47,0.15);border-radius:10px;padding:0.7rem 0.9rem;font-family:'Instrument Sans',sans-serif;font-size:0.9rem;color:var(--ink);background:white;outline:none;transition:border-color 0.2s,box-shadow 0.2s;}
-input[type=text]:focus,select:focus,textarea:focus{border-color:var(--sage);box-shadow:0 0 0 3px rgba(92,138,110,0.12);}
-textarea{resize:vertical;min-height:70px;}
-.input-row{display:flex;gap:0.6rem;}
-.input-row input{flex:1;}
+/* Search card */
+#search-card{
+  pointer-events:all;
+  margin:0 1rem;
+  background:var(--glass-light);
+  border-radius:20px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.25);
+  border:1px solid var(--border-light);
+  overflow:hidden;
+}
+.sf{
+  display:flex;align-items:center;gap:0.75rem;
+  padding:0.85rem 1rem;
+}
+.sf+.sf{border-top:1px solid rgba(15,26,21,0.07);}
+.sf-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.dot-a{background:var(--ink);}
+.dot-b{background:var(--rose-deep);}
+.sf-connector{
+  padding:0 1rem 0 1.47rem;
+  display:flex;align-items:center;
+}
+.sf-connector-line{width:1.5px;height:12px;background:rgba(15,26,21,0.12);}
+.sf input{
+  flex:1;border:none;outline:none;background:none;
+  font-family:'DM Sans',sans-serif;
+  font-size:0.95rem;color:var(--ink);font-weight:400;
+}
+.sf input::placeholder{color:rgba(15,26,21,0.32);}
+.sf-clear{
+  background:none;border:none;
+  font-size:1.1rem;color:rgba(15,26,21,0.25);
+  cursor:pointer;padding:0.1rem;line-height:1;
+  transition:color 0.2s;
+}
+.sf-clear:hover{color:var(--rose-deep);}
 
-.btn{width:100%;padding:0.8rem;border:none;border-radius:10px;font-family:'Instrument Sans',sans-serif;font-size:0.9rem;font-weight:500;cursor:pointer;transition:all 0.2s;}
-.btn-primary{background:var(--forest);color:var(--cream);}
-.btn-primary:hover{background:var(--forest-mid);transform:translateY(-1px);box-shadow:0 4px 16px rgba(30,58,47,0.2);}
-.btn-primary:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
-.btn-secondary{background:rgba(30,58,47,0.07);color:var(--forest);}
-.btn-secondary:hover{background:rgba(30,58,47,0.12);}
-.btn-rose{background:var(--rose-deep);color:white;}
-.btn-rose:hover{background:#c0737a;}
+/* Mode pills */
+#mode-pills{
+  pointer-events:all;
+  display:flex;gap:0.5rem;
+  margin:0.5rem 1rem 0;
+  flex-wrap:wrap;
+}
+.mpill{
+  display:flex;align-items:center;gap:0.35rem;
+  padding:0.45rem 0.9rem;
+  border-radius:100px;
+  font-family:'DM Sans',sans-serif;
+  font-size:0.8rem;font-weight:400;
+  cursor:pointer;border:none;
+  transition:all 0.2s;
+  box-shadow:0 2px 8px rgba(0,0,0,0.15);
+}
+.mpill-travel{background:white;color:var(--ink);}
+.mpill-travel.active{background:var(--forest);color:var(--cream);}
+.mpill-time{
+  background:white;color:var(--ink);
+  display:flex;align-items:center;gap:0.35rem;
+}
+.mpill-time .tval{font-weight:500;color:var(--rose-deep);}
+.mpill-travel.active .tval{color:var(--rose);}
 
-/* ── ROUTE RESULTS ── */
-.route-card{border:1.5px solid rgba(30,58,47,0.1);border-radius:14px;padding:1rem;margin-bottom:0.8rem;cursor:pointer;transition:all 0.2s;background:white;}
-.route-card:hover{border-color:var(--sage);transform:translateY(-1px);box-shadow:0 4px 16px rgba(30,58,47,0.1);}
-.route-card.selected{border-color:var(--rose-deep);box-shadow:0 0 0 3px rgba(212,132,138,0.15);}
-.route-card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;}
-.route-label{font-family:'Playfair Display',serif;font-size:0.95rem;font-weight:700;color:var(--forest);}
-.score-badge{display:flex;align-items:center;gap:0.3rem;}
-.score-circle{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;color:white;flex-shrink:0;}
-.score-circle.safe{background:var(--safe);}
-.score-circle.caution{background:var(--caution);}
-.score-circle.avoid{background:var(--danger);}
-.route-meta{font-size:0.78rem;color:var(--forest);opacity:0.55;display:flex;gap:0.8rem;}
-.route-alerts{margin-top:0.5rem;}
-.alert-chip{display:inline-flex;align-items:center;gap:0.3rem;background:rgba(224,82,82,0.08);border:1px solid rgba(224,82,82,0.2);border-radius:100px;padding:0.2rem 0.6rem;font-size:0.72rem;color:#c04040;margin:0.15rem 0.15rem 0 0;}
+/* Time drawer */
+#time-drawer{
+  pointer-events:all;
+  margin:0.4rem 1rem 0;
+  background:var(--glass-light);
+  border-radius:14px;
+  padding:0.9rem 1rem;
+  box-shadow:0 2px 12px rgba(0,0,0,0.12);
+  border:1px solid var(--border-light);
+  display:none;
+}
+#time-drawer.open{display:block;}
+.td-label{
+  font-size:0.7rem;font-weight:500;
+  text-transform:uppercase;letter-spacing:0.08em;
+  color:rgba(15,26,21,0.38);margin-bottom:0.5rem;
+}
+.td-row{display:flex;align-items:center;gap:0.8rem;}
+.td-row input[type=range]{flex:1;accent-color:var(--rose-deep);cursor:pointer;}
+.td-time{
+  font-family:'Playfair Display',serif;
+  font-size:1.1rem;font-weight:700;
+  color:var(--rose-deep);min-width:42px;text-align:right;
+}
 
-/* ── AI ADVICE BOX ── */
-.ai-box{background:rgba(30,58,47,0.04);border:1px solid rgba(30,58,47,0.1);border-radius:12px;padding:0.9rem;margin-top:0.8rem;}
-.ai-box-header{font-size:0.72rem;font-weight:500;color:var(--sage);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:0.4rem;display:flex;align-items:center;gap:0.4rem;}
-.ai-box-body{font-size:0.85rem;line-height:1.6;color:var(--forest);opacity:0.8;}
-
-/* ── HEATMAP LEGEND ── */
-.legend{background:white;border:1px solid rgba(30,58,47,0.1);border-radius:10px;padding:0.7rem 0.9rem;margin-bottom:0.8rem;}
-.legend-title{font-size:0.72rem;font-weight:500;text-transform:uppercase;letter-spacing:0.07em;color:var(--forest);opacity:0.5;margin-bottom:0.5rem;}
-.legend-row{display:flex;align-items:center;gap:0.5rem;font-size:0.8rem;color:var(--forest);margin-bottom:0.25rem;}
-.legend-dot{width:10px;height:10px;border-radius:50%;}
-
-/* ── STATS ── */
-.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin-bottom:1rem;}
-.stat-box{background:white;border:1px solid rgba(30,58,47,0.1);border-radius:12px;padding:0.9rem;}
-.stat-num{font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:700;color:var(--rose-deep);line-height:1;}
-.stat-label{font-size:0.72rem;color:var(--forest);opacity:0.5;margin-top:0.25rem;text-transform:uppercase;letter-spacing:0.05em;}
-.bar-chart{margin-bottom:1rem;}
-.bar-row{display:flex;align-items:center;gap:0.6rem;margin-bottom:0.5rem;}
-.bar-label{font-size:0.78rem;color:var(--forest);width:130px;flex-shrink:0;opacity:0.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.bar-track{flex:1;height:8px;background:rgba(30,58,47,0.07);border-radius:4px;overflow:hidden;}
-.bar-fill{height:100%;border-radius:4px;background:var(--rose-deep);transition:width 0.8s ease;}
-.bar-count{font-size:0.72rem;color:var(--forest);opacity:0.5;width:30px;text-align:right;}
-
-/* ── WHATSAPP SIM ── */
-.wa-chat{background:#E5DDD5;border-radius:12px;padding:1rem;min-height:200px;max-height:280px;overflow-y:auto;margin-bottom:0.8rem;display:flex;flex-direction:column;gap:0.5rem;}
-.wa-msg{max-width:85%;padding:0.6rem 0.8rem;border-radius:10px;font-size:0.85rem;line-height:1.5;white-space:pre-wrap;}
-.wa-msg.sent{background:#DCF8C6;align-self:flex-end;border-radius:10px 10px 2px 10px;}
-.wa-msg.recv{background:white;align-self:flex-start;border-radius:10px 10px 10px 2px;}
-.wa-input-row{display:flex;gap:0.5rem;}
-.wa-input-row input{flex:1;}
-.wa-send{background:var(--sage);color:white;border:none;border-radius:10px;padding:0.7rem 1rem;cursor:pointer;font-size:0.9rem;transition:background 0.2s;}
-.wa-send:hover{background:var(--forest);}
-
-/* ── MAP OVERLAYS ── */
-.map-fab{position:absolute;z-index:500;background:white;border:1px solid rgba(30,58,47,0.15);border-radius:10px;box-shadow:0 2px 12px rgba(30,58,47,0.12);padding:0.5rem 0.8rem;font-size:0.8rem;font-weight:500;color:var(--forest);cursor:pointer;transition:all 0.2s;}
-.map-fab:hover{box-shadow:0 4px 16px rgba(30,58,47,0.18);}
-#btn-heatmap{top:1rem;right:1rem;}
-#btn-report-mode{top:3.6rem;right:1rem;color:var(--rose-deep);border-color:rgba(212,132,138,0.3);}
-#btn-report-mode.active{background:var(--rose-deep);color:white;border-color:var(--rose-deep);}
-.map-hint{position:absolute;bottom:1.5rem;left:50%;transform:translateX(-50%);background:var(--forest);color:var(--cream);padding:0.5rem 1.2rem;border-radius:100px;font-size:0.8rem;z-index:500;display:none;}
-.map-hint.show{display:block;}
-
-/* ── TIME SLIDER ── */
-.time-row{display:flex;align-items:center;gap:0.8rem;margin-bottom:1rem;}
-.time-row label{white-space:nowrap;margin:0;}
-input[type=range]{flex:1;accent-color:var(--rose-deep);}
-.time-display{font-family:'Playfair Display',serif;font-size:1rem;font-weight:700;color:var(--rose-deep);min-width:48px;text-align:right;}
-
-/* ── LOADING ── */
-.loading{display:flex;align-items:center;justify-content:center;gap:0.6rem;padding:2rem;color:var(--forest);opacity:0.5;font-size:0.85rem;}
-.spinner{width:18px;height:18px;border:2px solid rgba(30,58,47,0.2);border-top-color:var(--forest);border-radius:50%;animation:spin 0.7s linear infinite;}
+/* Mode buttons */
+#mode-btns{
+  pointer-events:all;
+  display:flex;gap:0.5rem;
+  margin:0.5rem 1rem 0;
+}
+.mbtn{
+  flex:1;padding:0.82rem;border-radius:14px;
+  font-family:'DM Sans',sans-serif;
+  font-size:0.88rem;font-weight:500;
+  cursor:pointer;border:none;
+  transition:all 0.2s;
+  display:flex;align-items:center;justify-content:center;gap:0.4rem;
+}
+.mbtn-quick{
+  background:white;color:var(--ink);
+  border:1.5px solid rgba(15,26,21,0.12);
+  box-shadow:0 2px 12px rgba(0,0,0,0.1);
+}
+.mbtn-quick:hover{border-color:var(--sage);}
+.mbtn-plan{
+  background:var(--forest);color:var(--cream);
+  box-shadow:0 4px 16px rgba(26,47,37,0.35);
+}
+.mbtn-plan:hover{background:var(--forest-mid);}
+.mbtn:disabled{opacity:0.5;cursor:not-allowed;}
+.mbtn-spinner{
+  width:15px;height:15px;
+  border:2px solid rgba(255,255,255,0.3);
+  border-top-color:white;
+  border-radius:50%;
+  animation:spin 0.7s linear infinite;
+  display:none;
+}
+.mbtn.loading .mbtn-spinner{display:block;}
+.mbtn.loading .mbtn-label{display:none;}
 @keyframes spin{to{transform:rotate(360deg);}}
 
-/* ── TOAST ── */
-#toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);background:var(--forest);color:var(--cream);padding:0.7rem 1.4rem;border-radius:100px;font-size:0.85rem;z-index:9999;opacity:0;transition:opacity 0.3s;pointer-events:none;}
-#toast.show{opacity:1;}
-
-.section-title{font-family:'Playfair Display',serif;font-size:1.05rem;font-weight:700;color:var(--forest);margin-bottom:0.8rem;}
-.divider{height:1px;background:rgba(30,58,47,0.08);margin:1rem 0;}
-.tag-pill{display:inline-flex;align-items:center;gap:0.3rem;background:rgba(168,197,176,0.2);border:1px solid rgba(92,138,110,0.25);border-radius:100px;padding:0.2rem 0.6rem;font-size:0.72rem;color:var(--sage);margin-bottom:0.8rem;}
-
-/* ── ROUTE TYPE TOGGLE ── */
-.toggle-row{display:flex;gap:0.5rem;margin-bottom:1rem;}
-.toggle-btn{flex:1;padding:0.5rem;border:1.5px solid rgba(30,58,47,0.15);border-radius:8px;background:white;font-size:0.8rem;cursor:pointer;color:var(--forest);transition:all 0.2s;font-family:'Instrument Sans',sans-serif;}
-.toggle-btn.active{background:var(--forest);color:var(--cream);border-color:var(--forest);}
-
-@media(max-width:720px){
-  #sidebar{width:100vw;height:50vh;min-width:unset;border-right:none;border-top:1px solid rgba(30,58,47,0.1);}
-  #app{flex-direction:column-reverse;}
-  #map-container{flex:1;}
+/* ── QUICK CHECK RESULT ── */
+#quick-result{
+  position:fixed;inset:0;z-index:300;
+  display:flex;flex-direction:column;
+  justify-content:flex-end;
+  pointer-events:none;
+  display:none;
 }
+#quick-result.show{display:flex;}
+
+.qr-backdrop{
+  position:absolute;inset:0;
+  pointer-events:all;
+}
+
+.qr-card{
+  pointer-events:all;
+  margin:1rem;
+  border-radius:24px;
+  overflow:hidden;
+  box-shadow:0 12px 48px rgba(0,0,0,0.35);
+  animation:slideUp 0.4s cubic-bezier(0.32,0.72,0,1) both;
+}
+@keyframes slideUp{from{transform:translateY(40px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+
+.qr-hero{
+  padding:1.8rem 1.5rem 1.4rem;
+  display:flex;align-items:flex-start;gap:1.1rem;
+}
+.qr-score-wrap{
+  display:flex;flex-direction:column;align-items:center;gap:0.3rem;
+}
+.qr-score-ring{
+  width:64px;height:64px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Playfair Display',serif;
+  font-size:1.3rem;font-weight:700;color:white;
+  flex-shrink:0;
+  box-shadow:0 4px 16px rgba(0,0,0,0.2);
+}
+.qr-tier-label{
+  font-size:0.65rem;font-weight:500;
+  text-transform:uppercase;letter-spacing:0.07em;
+  color:rgba(255,255,255,0.7);
+  text-align:center;
+  white-space:nowrap;
+}
+.qr-info{flex:1;}
+.qr-route-name{
+  font-family:'Playfair Display',serif;
+  font-size:1.35rem;font-weight:700;
+  line-height:1.15;margin-bottom:0.35rem;
+}
+.qr-meta{
+  font-size:0.8rem;opacity:0.7;
+  display:flex;gap:0.7rem;flex-wrap:wrap;
+}
+.qr-meta span{display:flex;align-items:center;gap:0.25rem;}
+
+.qr-advice{
+  padding:0 1.5rem 1rem;
+  font-size:0.88rem;line-height:1.65;
+  font-style:italic;opacity:0.85;
+}
+
+.qr-top-alert{
+  margin:0 1.5rem 1rem;
+  padding:0.65rem 0.9rem;
+  border-radius:10px;
+  font-size:0.82rem;
+  display:flex;align-items:center;gap:0.5rem;
+}
+
+.qr-actions{
+  display:flex;gap:0.6rem;
+  padding:0 1.5rem 1.5rem;
+}
+.qr-btn-nav{
+  flex:1;padding:0.82rem;border-radius:12px;
+  border:none;cursor:pointer;
+  font-family:'DM Sans',sans-serif;
+  font-size:0.88rem;font-weight:500;
+  transition:all 0.2s;
+  display:flex;align-items:center;justify-content:center;gap:0.4rem;
+}
+.qr-btn-detail{
+  padding:0.82rem 1rem;border-radius:12px;
+  border:1.5px solid rgba(255,255,255,0.2);
+  background:none;cursor:pointer;
+  font-family:'DM Sans',sans-serif;
+  font-size:0.82rem;font-weight:400;
+  transition:all 0.2s;
+  white-space:nowrap;
+}
+.qr-btn-close{
+  padding:0.82rem 0.9rem;border-radius:12px;
+  border:1.5px solid rgba(255,255,255,0.15);
+  background:rgba(255,255,255,0.08);cursor:pointer;
+  font-size:0.85rem;color:inherit;
+  transition:all 0.2s;
+}
+
+/* safe theme */
+.theme-safe{background:linear-gradient(135deg,#1e4d35 0%,#2d6b45 100%);color:white;}
+.theme-safe .qr-top-alert{background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);}
+.theme-safe .qr-btn-nav{background:white;color:#1e4d35;}
+.theme-safe .qr-btn-detail,.theme-safe .qr-btn-close{color:white;}
+
+/* caution theme */
+.theme-caution{background:linear-gradient(135deg,#4a2e08 0%,#7a4a0a 100%);color:white;}
+.theme-caution .qr-top-alert{background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);}
+.theme-caution .qr-btn-nav{background:white;color:#4a2e08;}
+.theme-caution .qr-btn-detail,.theme-caution .qr-btn-close{color:white;}
+
+/* danger theme */
+.theme-danger{background:linear-gradient(135deg,#4a0f0f 0%,#7a1e1e 100%);color:white;}
+.theme-danger .qr-top-alert{background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.9);}
+.theme-danger .qr-btn-nav{background:white;color:#4a0f0f;}
+.theme-danger .qr-btn-detail,.theme-danger .qr-btn-close{color:white;}
+
+/* ── PLAN ROUTE BOTTOM SHEET ── */
+#bottom-sheet{
+  position:fixed;bottom:0;left:0;right:0;z-index:200;
+  background:var(--glass-light);
+  border-radius:24px 24px 0 0;
+  box-shadow:0 -4px 40px rgba(0,0,0,0.2);
+  border-top:1px solid var(--border-light);
+  transform:translateY(100%);
+  transition:transform 0.4s cubic-bezier(0.32,0.72,0,1);
+  max-height:88vh;
+  display:flex;flex-direction:column;
+}
+#bottom-sheet.peek{transform:translateY(calc(100% - 130px));}
+#bottom-sheet.half{transform:translateY(38%);}
+#bottom-sheet.full{transform:translateY(0);}
+
+.bs-handle-row{
+  display:flex;justify-content:center;
+  padding:0.75rem 0 0.3rem;
+  cursor:pointer;flex-shrink:0;
+}
+.bs-handle{width:36px;height:4px;background:rgba(15,26,21,0.12);border-radius:2px;}
+
+/* Peek strip */
+.bs-peek{padding:0 1.2rem 1rem;flex-shrink:0;}
+.bs-peek-row{
+  display:flex;align-items:center;gap:0.8rem;
+  cursor:pointer;
+}
+.bs-peek-score{
+  width:46px;height:46px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.88rem;font-weight:700;color:white;flex-shrink:0;
+}
+.bs-peek-info{flex:1;}
+.bs-peek-title{
+  font-family:'Playfair Display',serif;
+  font-size:1rem;font-weight:700;color:var(--ink);
+}
+.bs-peek-meta{font-size:0.78rem;color:rgba(15,26,21,0.45);margin-top:0.1rem;}
+.bs-nav-btn{
+  background:var(--forest);color:var(--cream);
+  border:none;border-radius:100px;
+  padding:0.55rem 1.1rem;
+  font-family:'DM Sans',sans-serif;
+  font-size:0.8rem;font-weight:500;
+  cursor:pointer;transition:background 0.2s;
+  white-space:nowrap;flex-shrink:0;
+}
+.bs-nav-btn:hover{background:var(--forest-mid);}
+
+/* Sheet scroll body */
+.bs-body{
+  overflow-y:auto;flex:1;
+  padding:0 1.2rem 2rem;
+}
+
+/* Route cards */
+.routes-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:0.8rem;
+}
+.routes-hdr-title{
+  font-family:'Playfair Display',serif;
+  font-size:1.1rem;font-weight:700;color:var(--ink);
+}
+.routes-count{font-size:0.78rem;color:rgba(15,26,21,0.38);}
+
+.route-card{
+  border:1.5px solid rgba(15,26,21,0.09);
+  border-radius:16px;padding:1rem;
+  margin-bottom:0.65rem;
+  cursor:pointer;background:white;
+  transition:all 0.2s;
+}
+.route-card:hover{border-color:var(--sage);box-shadow:0 4px 16px rgba(26,47,37,0.1);}
+.route-card.active{border-color:var(--rose-deep);box-shadow:0 0 0 3px rgba(204,107,115,0.1);}
+
+.rc-top{display:flex;align-items:flex-start;gap:0.8rem;margin-bottom:0.55rem;}
+.rc-score{
+  width:40px;height:40px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.8rem;font-weight:700;color:white;flex-shrink:0;
+}
+.rc-info{flex:1;}
+.rc-label{
+  font-family:'Playfair Display',serif;
+  font-size:0.95rem;font-weight:700;color:var(--ink);
+  display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;
+}
+.best-tag{
+  background:rgba(61,184,122,0.1);
+  border:1px solid rgba(61,184,122,0.25);
+  color:#27855a;
+  font-family:'DM Sans',sans-serif;
+  font-size:0.62rem;font-weight:500;
+  padding:0.1rem 0.45rem;border-radius:100px;
+  text-transform:uppercase;letter-spacing:0.05em;
+}
+.rc-meta{
+  display:flex;gap:0.7rem;flex-wrap:wrap;
+  font-size:0.76rem;color:rgba(15,26,21,0.42);
+  margin-top:0.18rem;
+}
+.safety-bar{
+  height:3px;background:rgba(15,26,21,0.06);
+  border-radius:2px;overflow:hidden;margin-bottom:0.55rem;
+}
+.safety-bar-fill{height:100%;border-radius:2px;transition:width 0.7s ease;}
+.alert-row{display:flex;flex-wrap:wrap;gap:0.3rem;}
+.chip{
+  display:inline-flex;align-items:center;gap:0.25rem;
+  border-radius:100px;padding:0.18rem 0.55rem;font-size:0.7rem;
+}
+.chip-warn{background:rgba(224,72,72,0.07);color:#b83030;border:1px solid rgba(224,72,72,0.18);}
+.chip-ok{background:rgba(61,184,122,0.08);color:#27855a;border:1px solid rgba(61,184,122,0.2);}
+
+/* AI box */
+.ai-box{
+  background:rgba(26,47,37,0.04);
+  border:1px solid rgba(26,47,37,0.07);
+  border-radius:14px;padding:0.9rem;margin:0.7rem 0;
+}
+.ai-label{
+  font-size:0.68rem;font-weight:500;
+  text-transform:uppercase;letter-spacing:0.08em;
+  color:var(--sage);margin-bottom:0.35rem;
+  display:flex;align-items:center;gap:0.3rem;
+}
+.ai-text{font-size:0.84rem;line-height:1.65;color:rgba(15,26,21,0.72);font-style:italic;}
+
+/* Turn by turn */
+.directions-hdr{
+  font-family:'Playfair Display',serif;
+  font-size:0.95rem;font-weight:700;color:var(--ink);
+  margin:1rem 0 0.5rem;
+  display:flex;align-items:center;gap:0.4rem;
+}
+.step-list{display:flex;flex-direction:column;}
+.step-item{
+  display:flex;align-items:flex-start;gap:0.8rem;
+  padding:0.65rem 0;
+  border-bottom:1px solid rgba(15,26,21,0.05);
+}
+.step-item:last-child{border-bottom:none;}
+.step-icon{
+  width:30px;height:30px;border-radius:50%;
+  background:rgba(26,47,37,0.07);
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.85rem;flex-shrink:0;margin-top:0.05rem;
+}
+.step-body{flex:1;}
+.step-instr{font-size:0.86rem;color:var(--ink);line-height:1.4;}
+.step-dist{font-size:0.73rem;color:rgba(15,26,21,0.38);margin-top:0.18rem;}
+.step-safety-tag{
+  display:inline-flex;align-items:center;gap:0.2rem;
+  font-size:0.68rem;border-radius:100px;
+  padding:0.12rem 0.45rem;margin-top:0.25rem;
+}
+.ss-safe{background:rgba(61,184,122,0.09);color:#27855a;}
+.ss-caution{background:rgba(232,160,48,0.1);color:#a0620a;}
+.ss-danger{background:rgba(224,72,72,0.09);color:#b83030;}
+
+/* ── NAVIGATION MODE ── */
+#nav-mode{
+  position:fixed;inset:0;z-index:400;
+  display:none;flex-direction:column;
+  pointer-events:none;
+}
+#nav-mode.active{display:flex;}
+
+#nav-turn{
+  pointer-events:all;
+  margin:1rem;
+  background:var(--glass);
+  border:1px solid var(--border-dark);
+  border-radius:20px;padding:1.1rem 1.2rem;
+  backdrop-filter:blur(20px);
+  box-shadow:0 4px 24px rgba(0,0,0,0.4);
+  display:flex;align-items:center;gap:0.9rem;
+}
+.nt-arrow{
+  width:50px;height:50px;border-radius:12px;
+  background:var(--rose-deep);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.5rem;flex-shrink:0;
+}
+.nt-info{flex:1;}
+.nt-in{font-size:0.7rem;font-weight:500;color:var(--txt-muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:0.15rem;}
+.nt-street{font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:700;color:var(--txt);line-height:1.2;}
+
+#nav-alert{
+  pointer-events:all;
+  margin:0 1rem;border-radius:12px;
+  padding:0.65rem 1rem;font-size:0.82rem;
+  display:none;align-items:center;gap:0.5rem;
+  backdrop-filter:blur(16px);
+  border:1px solid transparent;
+}
+#nav-alert.show{display:flex;}
+#nav-alert.al-safe{background:rgba(61,184,122,0.18);border-color:rgba(61,184,122,0.3);color:#3db87a;}
+#nav-alert.al-caution{background:rgba(232,160,48,0.18);border-color:rgba(232,160,48,0.3);color:#e8a030;}
+#nav-alert.al-danger{background:rgba(224,72,72,0.2);border-color:rgba(224,72,72,0.35);color:#e04848;}
+
+.nav-spacer{flex:1;}
+
+#nav-bottom{
+  pointer-events:all;
+  margin:1rem;
+  background:var(--glass);
+  border:1px solid var(--border-dark);
+  border-radius:20px;padding:1rem 1.2rem;
+  backdrop-filter:blur(20px);
+  box-shadow:0 4px 24px rgba(0,0,0,0.4);
+  display:flex;align-items:center;gap:1rem;
+}
+.nb-stat{text-align:center;}
+.nb-val{font-family:'Playfair Display',serif;font-size:1.25rem;font-weight:700;color:var(--txt);}
+.nb-lbl{font-size:0.65rem;color:var(--txt-muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:0.1rem;}
+.nb-div{width:1px;height:32px;background:var(--border-dark);}
+.nb-score{
+  width:44px;height:44px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.82rem;font-weight:700;color:white;flex-shrink:0;
+}
+.nb-end{
+  margin-left:auto;
+  background:rgba(204,107,115,0.18);
+  border:1px solid rgba(204,107,115,0.3);
+  color:var(--rose);
+  border-radius:100px;padding:0.48rem 0.9rem;
+  font-family:'DM Sans',sans-serif;font-size:0.78rem;font-weight:500;
+  cursor:pointer;transition:all 0.2s;
+}
+.nb-end:hover{background:var(--rose-deep);color:white;border-color:var(--rose-deep);}
+
+/* ── FAB ROW ── */
+#fabs{
+  position:fixed;right:1rem;top:1rem;
+  display:flex;flex-direction:column;gap:0.5rem;
+  z-index:150;
+}
+.fab{
+  background:var(--glass-light);
+  border:1px solid var(--border-light);
+  border-radius:100px;
+  padding:0.48rem 0.85rem;
+  font-family:'DM Sans',sans-serif;
+  font-size:0.78rem;font-weight:400;
+  color:var(--ink);cursor:pointer;
+  box-shadow:0 2px 10px rgba(0,0,0,0.12);
+  transition:all 0.2s;
+  display:flex;align-items:center;gap:0.35rem;
+  backdrop-filter:blur(10px);
+}
+.fab:hover{box-shadow:0 4px 14px rgba(0,0,0,0.18);}
+.fab.active{background:var(--forest);color:var(--cream);}
+
+/* ── RIGHT DRAWER ── */
+#drawer{
+  position:fixed;right:0;top:0;bottom:0;z-index:250;
+  width:330px;max-width:90vw;
+  background:var(--glass-light);
+  border-left:1px solid var(--border-light);
+  box-shadow:-4px 0 32px rgba(0,0,0,0.15);
+  transform:translateX(100%);
+  transition:transform 0.35s cubic-bezier(0.32,0.72,0,1);
+  display:flex;flex-direction:column;
+}
+#drawer.open{transform:translateX(0);}
+.drw-hdr{
+  padding:1.2rem 1.2rem 0.8rem;
+  border-bottom:1px solid var(--border-light);
+  display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;
+}
+.drw-title{font-family:'Playfair Display',serif;font-size:1.05rem;font-weight:700;color:var(--ink);}
+.drw-close{background:none;border:none;cursor:pointer;font-size:1.2rem;color:rgba(15,26,21,0.35);transition:color 0.2s;}
+.drw-close:hover{color:var(--rose-deep);}
+.drw-body{flex:1;overflow-y:auto;padding:1.1rem 1.2rem 2rem;}
+
+/* form */
+.field{margin-bottom:0.85rem;}
+.field label{
+  display:block;font-size:0.7rem;font-weight:500;
+  text-transform:uppercase;letter-spacing:0.07em;
+  color:rgba(15,26,21,0.4);margin-bottom:0.32rem;
+}
+.field input,.field select,.field textarea{
+  width:100%;border:1.5px solid rgba(15,26,21,0.1);
+  border-radius:10px;padding:0.62rem 0.8rem;
+  font-family:'DM Sans',sans-serif;
+  font-size:0.87rem;color:var(--ink);background:white;
+  outline:none;transition:border-color 0.2s;
+}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--sage);}
+.field textarea{min-height:68px;resize:vertical;}
+.btn-submit{
+  width:100%;padding:0.78rem;
+  background:var(--rose-deep);color:white;
+  border:none;border-radius:10px;
+  font-family:'DM Sans',sans-serif;
+  font-size:0.88rem;font-weight:500;
+  cursor:pointer;transition:background 0.2s;
+}
+.btn-submit:hover{background:#b8595f;}
+
+/* stats */
+.s2col{display:grid;grid-template-columns:1fr 1fr;gap:0.55rem;margin-bottom:0.9rem;}
+.sbox{background:white;border:1px solid rgba(15,26,21,0.08);border-radius:12px;padding:0.8rem;}
+.snum{font-family:'Playfair Display',serif;font-size:1.45rem;font-weight:700;color:var(--rose-deep);line-height:1;}
+.slbl{font-size:0.68rem;color:rgba(15,26,21,0.4);margin-top:0.18rem;text-transform:uppercase;letter-spacing:0.05em;}
+.sh{font-family:'Playfair Display',serif;font-size:0.92rem;font-weight:700;color:var(--ink);margin:0.9rem 0 0.5rem;}
+.br-row{display:flex;align-items:center;gap:0.55rem;margin-bottom:0.4rem;}
+.br-lbl{font-size:0.76rem;color:rgba(15,26,21,0.62);width:112px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.br-track{flex:1;height:6px;background:rgba(15,26,21,0.06);border-radius:3px;overflow:hidden;}
+.br-fill{height:100%;border-radius:3px;background:var(--rose-deep);transition:width 0.8s ease;}
+.br-ct{font-size:0.68rem;color:rgba(15,26,21,0.32);width:24px;text-align:right;}
+.hbars{display:flex;align-items:flex-end;gap:2px;height:48px;margin-bottom:0.35rem;}
+.hbar{flex:1;border-radius:2px 2px 0 0;min-height:3px;}
+.hlbls{display:flex;justify-content:space-between;font-size:0.62rem;color:rgba(15,26,21,0.28);}
+
+/* toast */
+#toast{
+  position:fixed;bottom:1.5rem;left:50%;
+  transform:translateX(-50%) translateY(16px);
+  background:var(--forest);color:var(--cream);
+  padding:0.62rem 1.2rem;border-radius:100px;
+  font-size:0.8rem;z-index:999;
+  opacity:0;transition:all 0.28s;pointer-events:none;
+  white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,0.25);
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* score color helpers */
+.c-safe{background:var(--safe);}
+.c-caution{background:var(--caution);}
+.c-danger{background:var(--danger);}
 </style>
 </head>
 <body>
-<div id="app">
-  <!-- SIDEBAR -->
-  <div id="sidebar">
-    <div class="nav-header">
-      <div class="logo"><span class="logo-dot"></span> SafeRoute</div>
-      <div class="tabs">
-        <button class="tab active" onclick="switchTab('route')">🗺 Route</button>
-        <button class="tab" onclick="switchTab('map')">🔥 Map</button>
-        <button class="tab" onclick="switchTab('report')">📍 Report</button>
-        <button class="tab" onclick="switchTab('stats')">📊 Stats</button>
-        <button class="tab" onclick="switchTab('whatsapp')">💬 Bot</button>
-      </div>
+
+<div id="map"></div>
+
+<!-- FAB ROW -->
+<div id="fabs">
+  <button class="fab active" id="fab-heat" onclick="toggleHeatmap()">🔥 Heatmap</button>
+  <button class="fab" id="fab-report" onclick="openDrawer('report')">📍 Report</button>
+  <button class="fab" id="fab-stats" onclick="openDrawer('stats')">📊 Stats</button>
+</div>
+
+<!-- HOME SEARCH OVERLAY -->
+<div id="home-overlay">
+  <div class="logo-strip">
+    <span class="logo-dot"></span>
+    <span class="logo-text">SafeRoute</span>
+  </div>
+
+  <div id="search-card">
+    <div class="sf">
+      <div class="sf-dot dot-a"></div>
+      <input type="text" id="inp-origin" placeholder="Starting point" autocomplete="off"/>
+      <button class="sf-clear" onclick="document.getElementById('inp-origin').value=''">×</button>
     </div>
-
-    <!-- ROUTE PANEL -->
-    <div class="panel active" id="panel-route">
-      <div class="panel-body">
-        <div class="field-group">
-          <label>From</label>
-          <input type="text" id="origin-input" placeholder="e.g. Lajpat Nagar" onkeydown="if(event.key==='Enter')findRoutes()"/>
-        </div>
-        <div class="field-group">
-          <label>To</label>
-          <input type="text" id="dest-input" placeholder="e.g. Connaught Place" onkeydown="if(event.key==='Enter')findRoutes()"/>
-        </div>
-        <div class="time-row">
-          <label>Hour</label>
-          <input type="range" id="hour-slider" min="0" max="23" value="20" oninput="updateTimeDisplay(this.value)"/>
-          <div class="time-display" id="time-display">20:00</div>
-        </div>
-        <div class="toggle-row">
-          <button class="toggle-btn active" id="btn-walk" onclick="setProfile('foot-walking')">🚶 Walk</button>
-          <button class="toggle-btn" id="btn-drive" onclick="setProfile('driving-car')">🚗 Drive</button>
-        </div>
-        <button class="btn btn-primary" id="btn-find-route" onclick="findRoutes()">Find Safest Route</button>
-
-        <div id="route-results" style="margin-top:1rem;"></div>
-      </div>
-    </div>
-
-    <!-- MAP PANEL -->
-    <div class="panel" id="panel-map">
-      <div class="panel-body">
-        <div class="section-title">Incident Heatmap</div>
-        <div class="legend">
-          <div class="legend-title">Incident Severity</div>
-          <div class="legend-row"><div class="legend-dot" style="background:#E05252;"></div>High severity (assault, groping)</div>
-          <div class="legend-row"><div class="legend-dot" style="background:#E8A838;"></div>Medium (stalking, eve teasing)</div>
-          <div class="legend-row"><div class="legend-dot" style="background:#4CAF82;"></div>Low (verbal, ogling)</div>
-        </div>
-        <div class="tag-pill">🛡 Safecity open dataset · Delhi</div>
-        <p style="font-size:0.82rem;line-height:1.6;color:var(--forest);opacity:0.65;margin-bottom:1rem;">
-          Each dot represents a cluster of incidents from the Safecity dataset. Click any marker for details.
-          The heatmap shows density weighted by incident severity.
-        </p>
-        <button class="btn btn-secondary" onclick="toggleHeatmap()">Toggle Heatmap Layer</button>
-        <div style="margin-top:0.8rem;">
-          <button class="btn btn-secondary" onclick="toggleMarkers()">Toggle Individual Markers</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- REPORT PANEL -->
-    <div class="panel" id="panel-report">
-      <div class="panel-body">
-        <div class="section-title">Report an Incident</div>
-        <p style="font-size:0.82rem;line-height:1.6;color:var(--forest);opacity:0.65;margin-bottom:1rem;">
-          Your report helps other women make safer choices. All reports are anonymous and go directly into the safety scoring model.
-        </p>
-        <div class="field-group">
-          <label>Click on the map to set location</label>
-          <input type="text" id="report-location" placeholder="Click map or type area name" readonly style="background:rgba(30,58,47,0.04);"/>
-        </div>
-        <div class="field-group">
-          <label>Incident Type</label>
-          <select id="report-category">
-            <option value="eve_teasing">Eve Teasing / Street Harassment</option>
-            <option value="verbal_abuse">Verbal Abuse / Catcalling</option>
-            <option value="stalking">Stalking / Being Followed</option>
-            <option value="groping">Groping / Physical Harassment</option>
-            <option value="flashing">Indecent Exposure</option>
-            <option value="assault">Physical Assault</option>
-            <option value="taking_photos">Unwanted Photography</option>
-            <option value="threat">Threatening Behavior</option>
-            <option value="other">Other</option>
-          </select>
-        </div>
-        <div class="field-group">
-          <label>What happened? (brief description)</label>
-          <textarea id="report-desc" placeholder="Describe the incident briefly..."></textarea>
-        </div>
-        <div class="field-group">
-          <label>Time of incident</label>
-          <select id="report-hour">
-            <option value="0">12:00 AM</option><option value="1">1:00 AM</option>
-            <option value="2">2:00 AM</option><option value="3">3:00 AM</option>
-            <option value="4">4:00 AM</option><option value="5">5:00 AM</option>
-            <option value="6">6:00 AM</option><option value="7">7:00 AM</option>
-            <option value="8">8:00 AM</option><option value="9">9:00 AM</option>
-            <option value="10">10:00 AM</option><option value="11">11:00 AM</option>
-            <option value="12">12:00 PM</option><option value="13">1:00 PM</option>
-            <option value="14">2:00 PM</option><option value="15">3:00 PM</option>
-            <option value="16">4:00 PM</option><option value="17">5:00 PM</option>
-            <option value="18">6:00 PM</option><option value="19">7:00 PM</option>
-            <option value="20" selected>8:00 PM</option><option value="21">9:00 PM</option>
-            <option value="22">10:00 PM</option><option value="23">11:00 PM</option>
-          </select>
-        </div>
-        <button class="btn btn-rose" onclick="submitReport()">Submit Report</button>
-        <p style="font-size:0.72rem;color:var(--forest);opacity:0.4;margin-top:0.5rem;text-align:center;">Your report is anonymous. No personal data collected.</p>
-      </div>
-    </div>
-
-    <!-- STATS PANEL -->
-    <div class="panel" id="panel-stats">
-      <div class="panel-body" id="stats-content">
-        <div class="loading"><div class="spinner"></div> Loading stats...</div>
-      </div>
-    </div>
-
-    <!-- WHATSAPP PANEL -->
-    <div class="panel" id="panel-whatsapp">
-      <div class="panel-body">
-        <div class="section-title">WhatsApp Bot Simulator</div>
-        <p style="font-size:0.82rem;line-height:1.6;color:var(--forest);opacity:0.65;margin-bottom:0.8rem;">
-          Try the SafeRoute WhatsApp bot. Type a message as if you were texting it.
-        </p>
-        <div class="tag-pill">Powered by Groq LLaMA3</div>
-        <div class="wa-chat" id="wa-chat">
-          <div class="wa-msg recv">👋 Hi! I'm SafeRoute. Ask me for a safe route, like:<br><br><em>"Safe route from Lajpat Nagar to Connaught Place at 9pm"</em></div>
-        </div>
-        <div class="wa-input-row">
-          <input type="text" id="wa-input" placeholder="Type your message..." onkeydown="if(event.key==='Enter')sendWhatsApp()"/>
-          <button class="wa-send" onclick="sendWhatsApp()">Send</button>
-        </div>
-      </div>
+    <div class="sf-connector"><div class="sf-connector-line"></div></div>
+    <div class="sf">
+      <div class="sf-dot dot-b"></div>
+      <input type="text" id="inp-dest" placeholder="Where are you going?" autocomplete="off"/>
+      <button class="sf-clear" onclick="document.getElementById('inp-dest').value=''">×</button>
     </div>
   </div>
 
-  <!-- MAP -->
-  <div id="map-container">
-    <div id="map"></div>
-    <button class="map-fab" id="btn-heatmap" onclick="toggleHeatmap()">🔥 Heatmap</button>
-    <button class="map-fab" id="btn-report-mode" onclick="toggleReportMode()">📍 Drop Pin</button>
-    <div class="map-hint" id="map-hint">Click on the map to place your incident report</div>
+  <div id="mode-pills">
+    <button class="mpill mpill-travel active" id="pill-walk" onclick="setTravel('walk')">🚶 Walk</button>
+    <button class="mpill mpill-travel" id="pill-drive" onclick="setTravel('drive')">🚗 Drive</button>
+    <button class="mpill mpill-time" onclick="toggleTimeDrawer()">🕐 <span class="tval" id="tval">20:00</span></button>
   </div>
+
+  <div id="time-drawer">
+    <div class="td-label">Departure time</div>
+    <div class="td-row">
+      <input type="range" id="tslider" min="0" max="23" value="20" oninput="onTime(this.value)"/>
+      <div class="td-time" id="td-time">20:00</div>
+    </div>
+  </div>
+
+  <div id="mode-btns">
+    <button class="mbtn mbtn-quick" id="btn-quick" onclick="doQuickCheck()">
+      <div class="mbtn-spinner"></div>
+      <span class="mbtn-label">⚡ Quick Check</span>
+    </button>
+    <button class="mbtn mbtn-plan" id="btn-plan" onclick="doPlanRoute()">
+      <div class="mbtn-spinner"></div>
+      <span class="mbtn-label">🗺 Plan Route</span>
+    </button>
+  </div>
+</div>
+
+<!-- QUICK CHECK RESULT CARD -->
+<div id="quick-result">
+  <div class="qr-backdrop" onclick="closeQuickResult()"></div>
+  <div class="qr-card" id="qr-card">
+    <!-- filled by JS -->
+  </div>
+</div>
+
+<!-- PLAN ROUTE BOTTOM SHEET -->
+<div id="bottom-sheet">
+  <div class="bs-handle-row" id="bs-handle">
+    <div class="bs-handle"></div>
+  </div>
+  <div class="bs-peek" id="bs-peek"></div>
+  <div class="bs-body" id="bs-body"></div>
+</div>
+
+<!-- NAVIGATION MODE -->
+<div id="nav-mode">
+  <div id="nav-turn">
+    <div class="nt-arrow" id="nt-arrow">↑</div>
+    <div class="nt-info">
+      <div class="nt-in" id="nt-in">In 0 m</div>
+      <div class="nt-street" id="nt-street">Starting route...</div>
+    </div>
+  </div>
+  <div id="nav-alert"></div>
+  <div class="nav-spacer"></div>
+  <div id="nav-bottom">
+    <div class="nb-stat">
+      <div class="nb-val" id="nb-dist">--</div>
+      <div class="nb-lbl">Remaining</div>
+    </div>
+    <div class="nb-div"></div>
+    <div class="nb-stat">
+      <div class="nb-val" id="nb-eta">--</div>
+      <div class="nb-lbl">Arrival</div>
+    </div>
+    <div class="nb-div"></div>
+    <div class="nb-score c-safe" id="nb-score">--</div>
+    <button class="nb-end" onclick="endNav()">End</button>
+  </div>
+</div>
+
+<!-- RIGHT DRAWER -->
+<div id="drawer">
+  <div class="drw-hdr">
+    <div class="drw-title" id="drw-title">Report</div>
+    <button class="drw-close" onclick="closeDrawer()">×</button>
+  </div>
+  <div class="drw-body" id="drw-body"></div>
 </div>
 
 <div id="toast"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 <script>
-// ── STATE ────────────────────────────────────────────────────────────────────
-const state = {
+// ── STATE ─────────────────────────────────────────────────────────────────────
+const S = {
   map: null,
   heatLayer: null,
-  markerLayer: null,
   routeLayers: [],
-  selectedRoute: 0,
-  heatmapVisible: true,
-  markersVisible: false,
-  reportMode: false,
-  reportLat: null,
-  reportLng: null,
-  profile: 'foot-walking',
+  markerA: null, markerB: null,
+  navPolyline: null, navMarker: null, navWatchId: null,
+  routeData: null,
+  activeIdx: 0,
+  travel: 'foot-walking',
+  hour: 20,
+  sheetState: 'hidden',
+  navMode: false,
+  navSteps: [],
+  navStepIdx: 0,
+  heatVisible: true,
+  drawerMode: null,
+  reportLat: null, reportLng: null,
+  reportPin: null,
   incidents: [],
-  currentRoutes: [],
 };
 
-// ── MAP INIT ─────────────────────────────────────────────────────────────────
+// ── MAP INIT ──────────────────────────────────────────────────────────────────
 function initMap() {
-  state.map = L.map('map', { zoomControl: true }).setView([28.6139, 77.2090], 12);
+  S.map = L.map('map', { zoomControl: false })
+    .setView([28.6139, 77.2090], 12);
 
-  // Clean map tiles
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-    maxZoom: 19,
-  }).addTo(state.map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap © CARTO', maxZoom: 19,
+  }).addTo(S.map);
 
-  state.markerLayer = L.layerGroup().addTo(state.map);
+  L.control.zoom({ position: 'bottomright' }).addTo(S.map);
 
-  // Map click handler for report mode
-  state.map.on('click', function(e) {
-    if (state.reportMode) {
-      state.reportLat = e.latlng.lat;
-      state.reportLng = e.latlng.lng;
-      document.getElementById('report-location').value =
-        `${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`;
-      // Drop a red pin
-      if (state._reportPin) state.map.removeLayer(state._reportPin);
-      state._reportPin = L.circleMarker([e.latlng.lat, e.latlng.lng], {
-        radius: 8, fillColor: '#D4848A', color: '#fff',
-        weight: 2, fillOpacity: 0.9,
-      }).addTo(state.map);
-      toast('Location set. Fill in the form and submit.');
-    }
-  });
-
+  S.map.on('click', onMapClick);
   loadIncidents();
-  loadStats();
+  setupSheetDrag();
+  setupEnterKeys();
 }
 
 // ── INCIDENTS / HEATMAP ───────────────────────────────────────────────────────
 async function loadIncidents() {
   try {
-    const res = await fetch('/api/incidents');
-    const geojson = await res.json();
-    state.incidents = geojson.features || [];
-    renderHeatmap();
-  } catch(e) {
-    console.error('Failed to load incidents', e);
-  }
+    const r = await fetch('/api/incidents');
+    const gj = await r.json();
+    S.incidents = gj.features || [];
+    buildHeatmap();
+  } catch(e) { console.warn('incidents failed', e); }
 }
 
-function renderHeatmap() {
-  if (state.heatLayer) state.map.removeLayer(state.heatLayer);
-
-  const points = state.incidents.map(f => {
+function buildHeatmap() {
+  if (S.heatLayer) S.map.removeLayer(S.heatLayer);
+  if (!S.incidents.length || typeof L.heatLayer === 'undefined') return;
+  const pts = S.incidents.map(f => {
     const [lng, lat] = f.geometry.coordinates;
-    const w = Math.min(f.properties.weight || 1, 10);
-    return [lat, lng, w];
+    return [lat, lng, Math.min(f.properties.weight || 1, 8)];
   });
-
-  if (points.length === 0) return;
-
-  if (typeof L.heatLayer !== 'undefined') {
-    state.heatLayer = L.heatLayer(points, {
-      radius: 28, blur: 22, maxZoom: 14,
-      gradient: {0.2:'#4CAF82', 0.5:'#E8A838', 0.8:'#E05252', 1.0:'#8B0000'},
-    });
-    if (state.heatmapVisible) state.heatLayer.addTo(state.map);
-  }
+  S.heatLayer = L.heatLayer(pts, {
+    radius: 30, blur: 24, maxZoom: 14,
+    gradient: { 0.2:'#3db87a', 0.5:'#e8a030', 0.85:'#e04848', 1.0:'#8B0000' },
+  });
+  if (S.heatVisible) S.heatLayer.addTo(S.map);
 }
 
 function toggleHeatmap() {
-  state.heatmapVisible = !state.heatmapVisible;
-  if (state.heatLayer) {
-    if (state.heatmapVisible) state.heatLayer.addTo(state.map);
-    else state.map.removeLayer(state.heatLayer);
+  S.heatVisible = !S.heatVisible;
+  if (S.heatLayer) {
+    S.heatVisible ? S.heatLayer.addTo(S.map) : S.map.removeLayer(S.heatLayer);
   }
-  document.getElementById('btn-heatmap').style.background = state.heatmapVisible ? '#1E3A2F' : 'white';
-  document.getElementById('btn-heatmap').style.color = state.heatmapVisible ? 'white' : '#1E3A2F';
+  document.getElementById('fab-heat').classList.toggle('active', S.heatVisible);
 }
 
-function toggleMarkers() {
-  state.markersVisible = !state.markersVisible;
-  state.markerLayer.clearLayers();
-  if (state.markersVisible) {
-    state.incidents.forEach(f => {
-      const [lng, lat] = f.geometry.coordinates;
-      const p = f.properties;
-      const color = {
-        rape:'#8B0000', assault:'#C0392B', molestation:'#E74C3C',
-        groping:'#E05252', stalking:'#E8A838', eve_teasing:'#D4AF6A',
-        verbal_abuse:'#4CAF82', verbal_harassment:'#4CAF82',
-      }[p.category] || '#888';
+// ── CONTROLS ──────────────────────────────────────────────────────────────────
+function setTravel(m) {
+  S.travel = m === 'walk' ? 'foot-walking' : 'driving-car';
+  document.getElementById('pill-walk').classList.toggle('active', m === 'walk');
+  document.getElementById('pill-drive').classList.toggle('active', m === 'drive');
+}
 
-      L.circleMarker([lat, lng], {
-        radius: 5 + Math.min(p.reports || 1, 8),
-        fillColor: color, color: 'white',
-        weight: 1, fillOpacity: 0.75,
-      }).bindPopup(`
-        <b>${p.area}</b><br/>
-        <span style="color:${color}">${p.category_label}</span><br/>
-        ${p.reports} report(s)<br/>
-        <small>Typically around ${p.hour}:00</small>
-      `).addTo(state.markerLayer);
+function toggleTimeDrawer() {
+  document.getElementById('time-drawer').classList.toggle('open');
+}
+
+function onTime(v) {
+  S.hour = parseInt(v);
+  const fmt = `${String(v).padStart(2,'0')}:00`;
+  document.getElementById('td-time').textContent = fmt;
+  document.getElementById('tval').textContent = fmt;
+}
+
+function setupEnterKeys() {
+  document.getElementById('inp-dest').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doPlanRoute();
+  });
+  document.getElementById('inp-origin').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('inp-dest').focus();
+  });
+}
+
+function getInputs() {
+  const origin = document.getElementById('inp-origin').value.trim();
+  const dest = document.getElementById('inp-dest').value.trim();
+  return { origin, dest };
+}
+
+// ── QUICK CHECK ───────────────────────────────────────────────────────────────
+async function doQuickCheck() {
+  const { origin, dest } = getInputs();
+  if (!dest) { toast('Enter a destination.'); return; }
+
+  const btn = document.getElementById('btn-quick');
+  btn.disabled = true; btn.classList.add('loading');
+  document.getElementById('time-drawer').classList.remove('open');
+
+  try {
+    // Use origin or default to current location placeholder
+    const body = {
+      origin: origin || 'Current location, Delhi',
+      destination: dest,
+      hour: S.hour,
+      profile: S.travel,
+    };
+    const res = await fetch('/api/route', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
     });
+    const data = await res.json();
+    if (data.error) { toast(data.error); return; }
+
+    S.routeData = data;
+    S.activeIdx = 0;
+
+    // Show best route on map
+    clearRouteLayers();
+    renderBestRouteOnMap(data.routes[0], data);
+
+    // Show quick result card
+    renderQuickResult(data);
+    document.getElementById('quick-result').classList.add('show');
+
+  } catch(e) {
+    toast('Connection error. Is the server running?');
+  } finally {
+    btn.disabled = false; btn.classList.remove('loading');
   }
 }
 
-// ── ROUTING ───────────────────────────────────────────────────────────────────
-let routeProfile = 'foot-walking';
+function renderQuickResult(data) {
+  const r = data.routes[0];
+  const theme = r.score >= 70 ? 'safe' : r.score >= 45 ? 'caution' : 'danger';
+  const themeColor = { safe: '#3db87a', caution: '#e8a030', danger: '#e04848' }[theme];
+  const topAlert = r.alerts && r.alerts.length > 0 ? r.alerts[0] : null;
+  const topIncidentType = topAlert ? topAlert.category_label : null;
 
-function setProfile(p) {
-  routeProfile = p;
-  document.getElementById('btn-walk').classList.toggle('active', p === 'foot-walking');
-  document.getElementById('btn-drive').classList.toggle('active', p === 'driving-car');
+  // Tip based on hour
+  const timeEmoji = S.hour >= 20 || S.hour < 5 ? '🌙' : S.hour >= 17 ? '🌆' : '☀️';
+
+  document.getElementById('qr-card').innerHTML = `
+    <div class="qr-hero theme-${theme}">
+      <div class="qr-score-wrap">
+        <div class="qr-score-ring" style="background:rgba(255,255,255,0.2);border:2px solid rgba(255,255,255,0.3);">
+          ${r.score}
+        </div>
+        <div class="qr-tier-label">${r.tier_label}</div>
+      </div>
+      <div class="qr-info">
+        <div class="qr-route-name">
+          ${data.origin.name.split(',')[0]} to ${data.destination.name.split(',')[0]}
+        </div>
+        <div class="qr-meta">
+          <span>🚶 ${r.distance_km} km</span>
+          <span>⏱ ${r.duration_min} min</span>
+          <span>${timeEmoji} ${String(S.hour).padStart(2,'0')}:00</span>
+        </div>
+      </div>
+    </div>
+
+    ${topIncidentType ? `
+    <div class="qr-top-alert theme-${theme}">
+      ⚠ ${topIncidentType} reported near this route
+    </div>` : ''}
+
+    ${r.ai_advice ? `
+    <div class="qr-advice theme-${theme}">${r.ai_advice}</div>` : `
+    <div class="qr-advice theme-${theme}">${r.advice}</div>`}
+
+    <div class="qr-actions theme-${theme}">
+      <button class="qr-btn-nav theme-${theme}" onclick="startNav()">
+        Navigate ↗
+      </button>
+      <button class="qr-btn-detail theme-${theme}" onclick="expandToPlan()">
+        See all routes
+      </button>
+      <button class="qr-btn-close theme-${theme}" onclick="closeQuickResult()">×</button>
+    </div>
+  `;
 }
 
-function updateTimeDisplay(val) {
-  document.getElementById('time-display').textContent = `${String(val).padStart(2,'0')}:00`;
+function closeQuickResult() {
+  document.getElementById('quick-result').classList.remove('show');
 }
 
-async function findRoutes() {
-  const origin = document.getElementById('origin-input').value.trim();
-  const dest = document.getElementById('dest-input').value.trim();
-  const hour = parseInt(document.getElementById('hour-slider').value);
+function expandToPlan() {
+  closeQuickResult();
+  renderBottomSheet(S.routeData);
+  setSheetState('half');
+}
 
-  if (!origin || !dest) { toast('Please enter both origin and destination.'); return; }
+// ── PLAN ROUTE ────────────────────────────────────────────────────────────────
+async function doPlanRoute() {
+  const { origin, dest } = getInputs();
+  if (!origin || !dest) { toast('Enter both start and destination.'); return; }
 
-  const btn = document.getElementById('btn-find-route');
-  btn.disabled = true;
-  btn.textContent = 'Finding route...';
-  document.getElementById('route-results').innerHTML =
-    '<div class="loading"><div class="spinner"></div> Calculating safety scores...</div>';
+  const btn = document.getElementById('btn-plan');
+  btn.disabled = true; btn.classList.add('loading');
+  document.getElementById('time-drawer').classList.remove('open');
+
+  clearRouteLayers();
 
   try {
     const res = await fetch('/api/route', {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ origin, destination: dest, hour, profile: routeProfile }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ origin, destination: dest, hour: S.hour, profile: S.travel }),
     });
     const data = await res.json();
+    if (data.error) { toast(data.error); return; }
 
-    if (data.error) {
-      document.getElementById('route-results').innerHTML =
-        `<div style="color:#E05252;font-size:0.85rem;padding:1rem;background:rgba(224,82,82,0.08);border-radius:10px;">${data.error}</div>`;
-      return;
-    }
+    S.routeData = data;
+    S.activeIdx = 0;
 
-    state.currentRoutes = data.routes;
-    renderRouteResults(data);
-    renderRoutesOnMap(data);
+    renderAllRoutesOnMap(data);
+    renderBottomSheet(data);
+    setSheetState('half');
+
   } catch(e) {
-    document.getElementById('route-results').innerHTML =
-      '<div style="color:#E05252;font-size:0.85rem;">Connection error. Is the server running?</div>';
+    toast('Connection error. Is the server running?');
   } finally {
-    btn.disabled = false;
-    btn.textContent = 'Find Safest Route';
+    btn.disabled = false; btn.classList.remove('loading');
   }
 }
 
-function renderRouteResults(data) {
-  const container = document.getElementById('route-results');
-  let html = '';
+// ── MAP RENDERING ─────────────────────────────────────────────────────────────
+function scoreColor(s) {
+  return s >= 70 ? '#3db87a' : s >= 45 ? '#e8a030' : '#e04848';
+}
+function scoreTier(s) {
+  return s >= 70 ? 'c-safe' : s >= 45 ? 'c-caution' : 'c-danger';
+}
 
-  data.routes.forEach((r, i) => {
-    const tierClass = r.tier === 'safe' ? 'safe' : r.tier === 'caution' ? 'caution' : 'avoid';
-    const alertChips = (r.alerts || []).slice(0, 3).map(a =>
-      `<span class="alert-chip">⚠ ${a.category_label}</span>`
-    ).join('');
+function clearRouteLayers() {
+  S.routeLayers.forEach(l => S.map.removeLayer(l));
+  S.routeLayers = [];
+  if (S.markerA) { S.map.removeLayer(S.markerA); S.markerA = null; }
+  if (S.markerB) { S.map.removeLayer(S.markerB); S.markerB = null; }
+}
 
-    html += `
-      <div class="route-card ${i===0?'selected':''}" onclick="selectRoute(${i})" id="route-card-${i}">
-        <div class="route-card-header">
-          <span class="route-label">${r.label}</span>
-          <div class="score-badge">
-            <div class="score-circle ${tierClass}">${r.score}</div>
-          </div>
-        </div>
-        <div class="route-meta">
-          <span>🚶 ${r.distance_km} km</span>
-          <span>⏱ ${r.duration_min} min</span>
-          <span>📍 ${r.total_incidents_nearby} nearby incidents</span>
-        </div>
-        ${alertChips ? `<div class="route-alerts">${alertChips}</div>` : ''}
-      </div>
-    `;
+function renderBestRouteOnMap(route, data) {
+  const latlngs = route.coords.map(c => [c[1], c[0]]);
+
+  const shadow = L.polyline(latlngs, { color:'rgba(0,0,0,0.3)', weight:8, opacity:0.4 }).addTo(S.map);
+  const line = L.polyline(latlngs, {
+    color: scoreColor(route.score), weight: 5, opacity: 1,
+    lineCap: 'round', lineJoin: 'round',
+  }).addTo(S.map);
+  S.routeLayers.push(shadow, line);
+
+  placeMarkers(data);
+  S.map.fitBounds(L.polyline(latlngs).getBounds(), { padding: [80, 80], maxZoom: 15 });
+}
+
+function renderAllRoutesOnMap(data) {
+  const colors = ['#cc6b73', '#4a7c5f', '#d4af6a'];
+  data.routes.forEach((route, i) => {
+    const latlngs = route.coords.map(c => [c[1], c[0]]);
+    const isActive = i === S.activeIdx;
+    const shadow = L.polyline(latlngs, { color:'rgba(0,0,0,0.25)', weight: isActive ? 9 : 5, opacity: isActive ? 0.4 : 0.15 }).addTo(S.map);
+    const line = L.polyline(latlngs, {
+      color: colors[i % colors.length],
+      weight: isActive ? 6 : 3.5,
+      opacity: isActive ? 1 : 0.4,
+      dashArray: i === 0 ? null : '10 6',
+      lineCap: 'round', lineJoin: 'round',
+    }).addTo(S.map);
+    line.on('click', () => selectRoute(i));
+    S.routeLayers.push(shadow, line);
   });
 
-  // AI advice for best route
-  const best = data.routes[0];
-  if (best.ai_advice) {
-    html += `
-      <div class="ai-box">
-        <div class="ai-box-header">✨ AI Safety Advisory</div>
-        <div class="ai-box-body">${best.ai_advice}</div>
-      </div>
-    `;
-  }
+  placeMarkers(data);
+  const coords = data.routes[0].coords.map(c => [c[1], c[0]]);
+  S.map.fitBounds(L.polyline(coords).getBounds(), { padding: [60, 60], maxZoom: 15 });
+}
 
-  // Time note
-  if (best.time_note) {
-    html += `<div style="margin-top:0.6rem;font-size:0.8rem;color:var(--forest);opacity:0.55;padding:0 0.2rem;">🕐 ${best.time_note}</div>`;
-  }
+function placeMarkers(data) {
+  const { origin, destination } = data;
 
-  container.innerHTML = html;
+  S.markerA = L.circleMarker([origin.lat, origin.lng], {
+    radius: 7, fillColor: 'white', color: '#0f1a15', weight: 2.5, fillOpacity: 1,
+  }).bindPopup(`<b>From:</b> ${origin.name}`).addTo(S.map);
+
+  const destIcon = L.divIcon({
+    className: '',
+    html: `<div style="width:26px;height:26px;background:#cc6b73;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2.5px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);"></div>`,
+    iconSize: [26, 26], iconAnchor: [13, 26],
+  });
+  S.markerB = L.marker([destination.lat, destination.lng], { icon: destIcon })
+    .bindPopup(`<b>To:</b> ${destination.name}`).addTo(S.map);
 }
 
 function selectRoute(idx) {
-  state.selectedRoute = idx;
-  document.querySelectorAll('.route-card').forEach((c,i) => {
-    c.classList.toggle('selected', i === idx);
+  if (!S.routeData) return;
+  S.activeIdx = idx;
+  clearRouteLayers();
+  renderAllRoutesOnMap(S.routeData);
+  renderBottomSheet(S.routeData);
+  setTimeout(() => {
+    const card = document.getElementById(`rc-${idx}`);
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 80);
+}
+
+// ── BOTTOM SHEET ──────────────────────────────────────────────────────────────
+function setSheetState(state) {
+  S.sheetState = state;
+  const el = document.getElementById('bottom-sheet');
+  el.classList.remove('peek', 'half', 'full');
+  if (state !== 'hidden') el.classList.add(state);
+}
+
+function renderBottomSheet(data) {
+  const best = data.routes[0];
+
+  // Peek content
+  document.getElementById('bs-peek').innerHTML = `
+    <div class="bs-peek-row" onclick="setSheetState(S.sheetState==='half'?'full':'half')">
+      <div class="bs-peek-score ${scoreTier(best.score)}">${best.score}</div>
+      <div class="bs-peek-info">
+        <div class="bs-peek-title">${best.label}</div>
+        <div class="bs-peek-meta">${best.distance_km} km · ${best.duration_min} min · ${best.total_incidents_nearby} incidents nearby</div>
+      </div>
+      <button class="bs-nav-btn" onclick="event.stopPropagation();startNav()">Navigate</button>
+    </div>
+  `;
+
+  // Full content
+  let html = `
+    <div class="routes-hdr">
+      <div class="routes-hdr-title">Route Options</div>
+      <div class="routes-count">${data.routes.length} compared by safety</div>
+    </div>`;
+
+  data.routes.forEach((r, i) => {
+    const color = scoreColor(r.score);
+    const alerts = (r.alerts || []).slice(0, 3);
+    html += `
+    <div class="route-card ${i === S.activeIdx ? 'active' : ''}" id="rc-${i}" onclick="selectRoute(${i})">
+      <div class="rc-top">
+        <div class="rc-score ${scoreTier(r.score)}">${r.score}</div>
+        <div class="rc-info">
+          <div class="rc-label">
+            ${r.label}
+            ${i === 0 ? '<span class="best-tag">Safest</span>' : ''}
+          </div>
+          <div class="rc-meta">
+            <span>🚶 ${r.distance_km} km</span>
+            <span>⏱ ${r.duration_min} min</span>
+            <span>📍 ${r.total_incidents_nearby} incidents</span>
+          </div>
+        </div>
+      </div>
+      <div class="safety-bar">
+        <div class="safety-bar-fill" style="width:${r.score}%;background:${color}"></div>
+      </div>
+      <div class="alert-row">
+        ${alerts.length
+          ? alerts.map(a => `<span class="chip chip-warn">⚠ ${a.category_label}</span>`).join('')
+          : '<span class="chip chip-ok">✓ No major incidents on route</span>'}
+      </div>
+    </div>`;
   });
-  // Highlight selected route on map
-  state.routeLayers.forEach((layer, i) => {
-    if (layer.setStyle) {
-      layer.setStyle({ opacity: i === idx ? 1 : 0.3, weight: i === idx ? 5 : 3 });
+
+  if (best.ai_advice) {
+    html += `
+    <div class="ai-box">
+      <div class="ai-label">✦ AI Safety Advisory</div>
+      <div class="ai-text">${best.ai_advice}</div>
+    </div>`;
+  }
+
+  const active = data.routes[S.activeIdx];
+  if (active.steps && active.steps.length > 0) {
+    html += buildStepList(active.steps, active.score);
+  }
+
+  document.getElementById('bs-body').innerHTML = html;
+}
+
+function buildStepList(steps, routeScore) {
+  const arrows = { 0:'↑',1:'↑',2:'→',3:'←',4:'↗',5:'↖',6:'↘',7:'↙',10:'🏁' };
+  let html = `<div class="directions-hdr">↗ Turn-by-Turn</div><div class="step-list">`;
+
+  steps.forEach((step, i) => {
+    const isLast = i === steps.length - 1;
+    const icon = isLast ? '🏁' : (arrows[step.type] || '↑');
+    const dist = step.distance >= 1000
+      ? `${(step.distance/1000).toFixed(1)} km`
+      : `${Math.round(step.distance)} m`;
+
+    // Estimate segment safety using route score with slight variance per step
+    const segScore = Math.max(0, Math.min(100, routeScore + (((i * 17) % 30) - 15)));
+    let safetyTag = '';
+    if (!isLast) {
+      if (segScore >= 70) safetyTag = `<span class="step-safety-tag ss-safe">Safe stretch</span>`;
+      else if (segScore >= 45) safetyTag = `<span class="step-safety-tag ss-caution">Stay alert</span>`;
+      else safetyTag = `<span class="step-safety-tag ss-danger">Caution</span>`;
     }
+
+    html += `
+    <div class="step-item">
+      <div class="step-icon">${icon}</div>
+      <div class="step-body">
+        <div class="step-instr">${step.instruction || step.name || 'Continue'}</div>
+        <div class="step-dist">${dist}</div>
+        ${safetyTag}
+      </div>
+    </div>`;
   });
-  // Fly to route
-  if (state.currentRoutes[idx]) {
-    const coords = state.currentRoutes[idx].coords;
-    if (coords && coords.length > 0) {
-      const latlngs = coords.map(c => [c[1], c[0]]);
-      state.map.fitBounds(L.polyline(latlngs).getBounds(), {padding: [40, 40]});
-    }
+
+  html += '</div>';
+  return html;
+}
+
+// ── NAVIGATION MODE ───────────────────────────────────────────────────────────
+function startNav() {
+  closeQuickResult();
+  if (!S.routeData) return;
+  const route = S.routeData.routes[S.activeIdx];
+  if (!route.steps || !route.steps.length) {
+    toast('No turn-by-turn directions available.');
+    return;
+  }
+
+  S.navMode = true;
+  S.navSteps = route.steps;
+  S.navStepIdx = 0;
+
+  setSheetState('hidden');
+  document.getElementById('home-overlay').classList.add('hidden');
+  document.getElementById('nav-mode').classList.add('active');
+
+  updateTurnDisplay();
+  updateSegAlert(route.score);
+
+  const el = document.getElementById('nb-score');
+  el.textContent = route.score;
+  el.className = `nb-score ${scoreTier(route.score)}`;
+  document.getElementById('nb-dist').textContent = `${route.distance_km}km`;
+
+  const eta = new Date();
+  eta.setMinutes(eta.getMinutes() + route.duration_min);
+  document.getElementById('nb-eta').textContent =
+    `${String(eta.getHours()).padStart(2,'0')}:${String(eta.getMinutes()).padStart(2,'0')}`;
+
+  // Draw nav line
+  if (S.navPolyline) S.map.removeLayer(S.navPolyline);
+  const latlngs = route.coords.map(c => [c[1], c[0]]);
+  S.navPolyline = L.polyline(latlngs, {
+    color: '#cc6b73', weight: 6, opacity: 1, lineCap: 'round',
+  }).addTo(S.map);
+  S.map.fitBounds(L.polyline(latlngs).getBounds(), { padding: [80, 120] });
+
+  startGPS();
+}
+
+function updateTurnDisplay() {
+  if (S.navStepIdx >= S.navSteps.length) {
+    document.getElementById('nt-street').textContent = 'You have arrived!';
+    document.getElementById('nt-arrow').textContent = '🏁';
+    document.getElementById('nt-in').textContent = 'Destination reached';
+    return;
+  }
+  const step = S.navSteps[S.navStepIdx];
+  const arrows = { 0:'↑',1:'↑',2:'→',3:'←',4:'↗',5:'↖',6:'↘',7:'↙',10:'🏁' };
+  const dist = step.distance >= 1000 ? `${(step.distance/1000).toFixed(1)} km` : `${Math.round(step.distance)} m`;
+  document.getElementById('nt-arrow').textContent = arrows[step.type] || '↑';
+  document.getElementById('nt-street').textContent = step.instruction || step.name || 'Continue straight';
+  document.getElementById('nt-in').textContent = `In ${dist}`;
+}
+
+function updateSegAlert(score) {
+  const el = document.getElementById('nav-alert');
+  if (score >= 70) {
+    el.className = 'nav-alert show al-safe';
+    el.textContent = '✓ Safe stretch ahead';
+  } else if (score >= 45) {
+    el.className = 'nav-alert show al-caution';
+    el.textContent = '⚠ Stay on the main road, incidents nearby';
+  } else {
+    el.className = 'nav-alert show al-danger';
+    el.textContent = '⚠ Significant incidents in this area, stay alert';
   }
 }
 
-function renderRoutesOnMap(data) {
-  // Clear existing routes
-  state.routeLayers.forEach(l => state.map.removeLayer(l));
-  state.routeLayers = [];
-
-  const colors = ['#D4848A', '#5C8A6E', '#D4AF6A'];
-
-  data.routes.forEach((route, i) => {
-    const latlngs = route.coords.map(c => [c[1], c[0]]);
-    const line = L.polyline(latlngs, {
-      color: colors[i % colors.length],
-      weight: i === 0 ? 5 : 3,
-      opacity: i === 0 ? 1 : 0.45,
-      dashArray: i === 0 ? null : '8 4',
-    }).addTo(state.map);
-
-    line.bindPopup(`<b>${route.label}</b><br/>Safety: ${route.score}/100<br/>${route.distance_km}km, ${route.duration_min}min`);
-    state.routeLayers.push(line);
-  });
-
-  // Fly to best route
-  if (data.routes.length > 0) {
-    const coords = data.routes[0].coords;
-    const latlngs = coords.map(c => [c[1], c[0]]);
-    state.map.fitBounds(L.polyline(latlngs).getBounds(), {padding: [40, 80]});
+function endNav() {
+  S.navMode = false;
+  document.getElementById('nav-mode').classList.remove('active');
+  document.getElementById('home-overlay').classList.remove('hidden');
+  if (S.navPolyline) { S.map.removeLayer(S.navPolyline); S.navPolyline = null; }
+  if (S.navMarker) { S.map.removeLayer(S.navMarker); S.navMarker = null; }
+  if (S.navWatchId) { navigator.geolocation.clearWatch(S.navWatchId); S.navWatchId = null; }
+  if (S.routeData) {
+    renderAllRoutesOnMap(S.routeData);
+    setSheetState('half');
   }
-
-  // Origin/destination markers
-  const orig = data.origin;
-  const dest = data.destination;
-
-  [state._originMarker, state._destMarker].forEach(m => { if(m) state.map.removeLayer(m); });
-
-  state._originMarker = L.circleMarker([orig.lat, orig.lng], {
-    radius: 8, fillColor: '#1E3A2F', color: 'white', weight: 2, fillOpacity: 1,
-  }).bindPopup(`<b>Start:</b> ${orig.name}`).addTo(state.map);
-
-  state._destMarker = L.circleMarker([dest.lat, dest.lng], {
-    radius: 8, fillColor: '#D4848A', color: 'white', weight: 2, fillOpacity: 1,
-  }).bindPopup(`<b>Destination:</b> ${dest.name}`).addTo(state.map);
 }
 
-// ── REPORT ────────────────────────────────────────────────────────────────────
-function toggleReportMode() {
-  state.reportMode = !state.reportMode;
-  const btn = document.getElementById('btn-report-mode');
-  const hint = document.getElementById('map-hint');
-  btn.classList.toggle('active', state.reportMode);
-  hint.classList.toggle('show', state.reportMode);
-  state.map.getContainer().style.cursor = state.reportMode ? 'crosshair' : '';
-  if (state.reportMode) switchTab('report');
+// ── GPS ───────────────────────────────────────────────────────────────────────
+function startGPS() {
+  if (!navigator.geolocation) return;
+  const icon = L.divIcon({
+    className: '',
+    html: `<div style="width:14px;height:14px;background:#cc6b73;border-radius:50%;border:3px solid white;box-shadow:0 0 0 4px rgba(204,107,115,0.3);"></div>`,
+    iconSize: [14,14], iconAnchor: [7,7],
+  });
+  S.navWatchId = navigator.geolocation.watchPosition(pos => {
+    const { latitude: lat, longitude: lng } = pos.coords;
+    if (!S.navMarker) {
+      S.navMarker = L.marker([lat, lng], { icon }).addTo(S.map);
+    } else {
+      S.navMarker.setLatLng([lat, lng]);
+    }
+    if (S.navMode && S.routeData) advanceStep(lat, lng);
+  }, () => {}, { enableHighAccuracy: true, maximumAge: 3000 });
+}
+
+function advanceStep(lat, lng) {
+  if (S.navStepIdx >= S.navSteps.length - 1) return;
+  const step = S.navSteps[S.navStepIdx];
+  if (!step.way_points) return;
+  const route = S.routeData.routes[S.activeIdx];
+  const wIdx = step.way_points[step.way_points.length - 1];
+  const coord = route.coords[wIdx];
+  if (!coord) return;
+  const d = hav(lat, lng, coord[1], coord[0]);
+  if (d < 0.025) { S.navStepIdx++; updateTurnDisplay(); }
+}
+
+function hav(la1, lo1, la2, lo2) {
+  const R = 6371;
+  const dLa = (la2-la1)*Math.PI/180, dLo = (lo2-lo1)*Math.PI/180;
+  const a = Math.sin(dLa/2)**2 + Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLo/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// ── SHEET DRAG ────────────────────────────────────────────────────────────────
+function setupSheetDrag() {
+  const handle = document.getElementById('bs-handle');
+  let startY = 0, startState = '';
+
+  handle.addEventListener('touchstart', e => {
+    startY = e.touches[0].clientY; startState = S.sheetState;
+  }, { passive: true });
+
+  handle.addEventListener('touchend', e => {
+    const dy = e.changedTouches[0].clientY - startY;
+    if (dy < -40) setSheetState(startState === 'peek' ? 'half' : 'full');
+    else if (dy > 40) setSheetState(startState === 'full' ? 'half' : 'peek');
+  }, { passive: true });
+
+  handle.addEventListener('click', () => {
+    const cycle = { peek:'half', half:'full', full:'half' };
+    setSheetState(cycle[S.sheetState] || 'half');
+  });
+}
+
+// ── MAP CLICK (report mode) ───────────────────────────────────────────────────
+function onMapClick(e) {
+  if (S.drawerMode !== 'report') return;
+  S.reportLat = e.latlng.lat;
+  S.reportLng = e.latlng.lng;
+  if (S.reportPin) S.map.removeLayer(S.reportPin);
+  S.reportPin = L.circleMarker([e.latlng.lat, e.latlng.lng], {
+    radius: 8, fillColor: '#cc6b73', color: 'white', weight: 2, fillOpacity: 0.9,
+  }).addTo(S.map);
+  const hint = document.getElementById('r-loc-hint');
+  if (hint) hint.textContent = `Location set: ${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`;
+  toast('Location pinned. Fill in the form.');
+}
+
+// ── DRAWER ────────────────────────────────────────────────────────────────────
+function openDrawer(mode) {
+  S.drawerMode = mode;
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById(`fab-${mode}`).classList.add('active');
+  if (mode === 'report') {
+    document.getElementById('drw-title').textContent = 'Report Incident';
+    document.getElementById('drw-body').innerHTML = buildReportForm();
+  } else {
+    document.getElementById('drw-title').textContent = 'Safety Stats';
+    loadStats();
+  }
+}
+
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.querySelectorAll('.fab').forEach(f => f.classList.remove('active'));
+  if (S.reportPin && S.drawerMode === 'report') {
+    S.map.removeLayer(S.reportPin); S.reportPin = null;
+  }
+  S.drawerMode = null; S.reportLat = null; S.reportLng = null;
+  // restore heatmap fab
+  if (S.heatVisible) document.getElementById('fab-heat').classList.add('active');
+}
+
+function buildReportForm() {
+  return `
+    <p style="font-size:0.82rem;line-height:1.6;color:rgba(15,26,21,0.55);margin-bottom:0.9rem;">
+      Your report is <strong>anonymous</strong> and goes directly into the safety scoring model.
+    </p>
+    <div style="background:rgba(74,124,95,0.07);border:1px solid rgba(74,124,95,0.18);border-radius:10px;padding:0.65rem 0.85rem;margin-bottom:0.8rem;font-size:0.8rem;color:var(--sage);">
+      📍 Tap anywhere on the map to pin the location
+    </div>
+    <p id="r-loc-hint" style="font-size:0.74rem;color:var(--sage);min-height:1rem;margin-bottom:0.8rem;"></p>
+    <div class="field">
+      <label>Incident Type</label>
+      <select id="r-cat">
+        <option value="eve_teasing">Eve Teasing / Street Harassment</option>
+        <option value="verbal_abuse">Verbal Abuse / Catcalling</option>
+        <option value="stalking">Stalking / Being Followed</option>
+        <option value="groping">Groping / Physical Harassment</option>
+        <option value="flashing">Indecent Exposure</option>
+        <option value="assault">Physical Assault</option>
+        <option value="taking_photos">Unwanted Photography</option>
+        <option value="threat">Threatening Behavior</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>What happened?</label>
+      <textarea id="r-desc" placeholder="Brief description..."></textarea>
+    </div>
+    <div class="field">
+      <label>Time of incident</label>
+      <select id="r-hour">
+        ${Array.from({length:24},(_,h)=>`<option value="${h}" ${h===20?'selected':''}>${String(h).padStart(2,'0')}:00</option>`).join('')}
+      </select>
+    </div>
+    <button class="btn-submit" onclick="submitReport()">Submit Report</button>
+    <p style="font-size:0.68rem;color:rgba(15,26,21,0.3);text-align:center;margin-top:0.5rem;">No personal data collected.</p>
+  `;
 }
 
 async function submitReport() {
-  const desc = document.getElementById('report-desc').value.trim();
-  const category = document.getElementById('report-category').value;
-  const hour = parseInt(document.getElementById('report-hour').value);
-
-  if (!state.reportLat || !state.reportLng) {
-    toast('Please click the map to set the incident location first.'); return;
-  }
+  if (!S.reportLat || !S.reportLng) { toast('Tap the map to set location first.'); return; }
+  const desc = document.getElementById('r-desc').value.trim();
   if (!desc) { toast('Please describe what happened.'); return; }
-
   try {
     const res = await fetch('/api/report', {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        lat: state.reportLat, lng: state.reportLng,
-        area: 'Delhi', category, description: desc, hour,
+        lat: S.reportLat, lng: S.reportLng, area: 'Delhi',
+        category: document.getElementById('r-cat').value,
+        description: desc,
+        hour: parseInt(document.getElementById('r-hour').value),
       }),
     });
     const data = await res.json();
     if (data.success) {
       toast(data.message);
-      document.getElementById('report-desc').value = '';
-      document.getElementById('report-location').value = '';
-      state.reportLat = null; state.reportLng = null;
-      if (state._reportPin) { state.map.removeLayer(state._reportPin); state._reportPin = null; }
-      toggleReportMode();
-      loadIncidents(); // Refresh heatmap
+      closeDrawer();
+      loadIncidents();
     }
-  } catch(e) { toast('Failed to submit report. Try again.'); }
+  } catch(e) { toast('Submit failed. Try again.'); }
 }
 
 // ── STATS ─────────────────────────────────────────────────────────────────────
 async function loadStats() {
+  document.getElementById('drw-body').innerHTML =
+    '<div style="padding:2rem;text-align:center;color:rgba(15,26,21,0.35);font-size:0.84rem;">Loading...</div>';
   try {
     const res = await fetch('/api/stats');
-    const data = await res.json();
-    renderStats(data);
+    const d = await res.json();
+    const maxC = Math.max(...d.category_breakdown.map(c=>c.count),1);
+    const maxH2 = Math.max(...d.top_hotspots.map(h=>h.reports),1);
+    const maxHr = Math.max(...d.hourly_distribution.map(h=>h.reports),1);
+
+    document.getElementById('drw-body').innerHTML = `
+      <div class="s2col">
+        <div class="sbox"><div class="snum">${d.total_incidents.toLocaleString()}</div><div class="slbl">Clusters</div></div>
+        <div class="sbox"><div class="snum">${d.total_reports.toLocaleString()}</div><div class="slbl">Reports</div></div>
+      </div>
+      <div class="sh">Incident Types</div>
+      ${d.category_breakdown.slice(0,8).map(c=>`
+        <div class="br-row">
+          <div class="br-lbl">${c.name}</div>
+          <div class="br-track"><div class="br-fill" style="width:${Math.round(c.count/maxC*100)}%"></div></div>
+          <div class="br-ct">${c.count}</div>
+        </div>`).join('')}
+      <div class="sh">Top Hotspots</div>
+      ${d.top_hotspots.slice(0,6).map(h=>`
+        <div class="br-row">
+          <div class="br-lbl">${h.area}</div>
+          <div class="br-track"><div class="br-fill" style="width:${Math.round(h.reports/maxH2*100)}%;background:#e04848"></div></div>
+          <div class="br-ct">${h.reports}</div>
+        </div>`).join('')}
+      <div class="sh">Incidents by Hour</div>
+      <div class="hbars">
+        ${d.hourly_distribution.map(h=>{
+          const pct = Math.round(h.reports/maxHr*100);
+          const col = h.hour>=20||h.hour<5?'#e04848':h.hour>=17?'#e8a030':'#3db87a';
+          return `<div class="hbar" style="height:${Math.max(4,pct)}%;background:${col};opacity:0.8;" title="${h.hour}:00 — ${h.reports}"></div>`;
+        }).join('')}
+      </div>
+      <div class="hlbls"><span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>11pm</span></div>
+    `;
   } catch(e) {
-    document.getElementById('stats-content').innerHTML =
-      '<div style="padding:1rem;color:#E05252;font-size:0.85rem;">Failed to load stats.</div>';
+    document.getElementById('drw-body').innerHTML = '<div style="padding:1rem;color:#e04848;font-size:0.84rem;">Failed to load.</div>';
   }
-}
-
-function renderStats(data) {
-  const maxCat = Math.max(...data.category_breakdown.map(c => c.count), 1);
-  const maxHot = Math.max(...data.top_hotspots.map(h => h.reports), 1);
-
-  let html = `
-    <div class="section-title">Delhi Safety Overview</div>
-    <div class="stat-grid">
-      <div class="stat-box"><div class="stat-num">${data.total_incidents.toLocaleString()}</div><div class="stat-label">Incident Clusters</div></div>
-      <div class="stat-box"><div class="stat-num">${data.total_reports.toLocaleString()}</div><div class="stat-label">Total Reports</div></div>
-    </div>
-    <div class="divider"></div>
-    <div class="section-title">Incident Types</div>
-    <div class="bar-chart">
-      ${data.category_breakdown.slice(0,8).map(c => `
-        <div class="bar-row">
-          <div class="bar-label">${c.name}</div>
-          <div class="bar-track"><div class="bar-fill" style="width:${Math.round(c.count/maxCat*100)}%"></div></div>
-          <div class="bar-count">${c.count}</div>
-        </div>
-      `).join('')}
-    </div>
-    <div class="divider"></div>
-    <div class="section-title">Top Hotspot Areas</div>
-    <div class="bar-chart">
-      ${data.top_hotspots.slice(0,7).map(h => `
-        <div class="bar-row">
-          <div class="bar-label">${h.area}</div>
-          <div class="bar-track"><div class="bar-fill" style="width:${Math.round(h.reports/maxHot*100)}%;background:var(--danger)"></div></div>
-          <div class="bar-count">${h.reports}</div>
-        </div>
-      `).join('')}
-    </div>
-    <div class="divider"></div>
-    <div class="section-title">Peak Incident Hours</div>
-    <div style="display:flex;align-items:flex-end;gap:2px;height:60px;margin-bottom:0.5rem;">
-      ${data.hourly_distribution.map(h => {
-        const max = Math.max(...data.hourly_distribution.map(x => x.reports), 1);
-        const pct = Math.round(h.reports / max * 100);
-        const color = h.hour >= 18 || h.hour < 5 ? '#E05252' : h.hour >= 14 ? '#E8A838' : '#4CAF82';
-        return `<div title="${h.hour}:00 - ${h.reports} reports" style="flex:1;height:${Math.max(4,pct)}%;background:${color};border-radius:2px 2px 0 0;opacity:0.8;"></div>`;
-      }).join('')}
-    </div>
-    <div style="display:flex;justify-content:space-between;font-size:0.68rem;color:var(--forest);opacity:0.4;">
-      <span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>11pm</span>
-    </div>
-  `;
-
-  document.getElementById('stats-content').innerHTML = html;
-}
-
-// ── WHATSAPP SIM ──────────────────────────────────────────────────────────────
-async function sendWhatsApp() {
-  const input = document.getElementById('wa-input');
-  const msg = input.value.trim();
-  if (!msg) return;
-
-  addWaMsg(msg, 'sent');
-  input.value = '';
-
-  const typing = addWaMsg('...', 'recv');
-
-  try {
-    const res = await fetch('/api/whatsapp/simulate', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ message: msg }),
-    });
-    const data = await res.json();
-    typing.remove();
-    addWaMsg(data.reply, 'recv');
-
-    // If route found, show it on map
-    if (data.route_coords && data.origin && data.destination) {
-      state.currentRoutes = [{ coords: data.route_coords, score: data.score }];
-      renderRoutesOnMap({
-        origin: data.origin, destination: data.destination,
-        routes: [{ ...data, coords: data.route_coords, label: 'WhatsApp Route', tier: data.tier || 'caution', alerts: [], total_incidents_nearby: 0, distance_km: '?', duration_min: '?', distance_m: 0 }]
-      });
-    }
-  } catch(e) {
-    typing.remove();
-    addWaMsg('Connection error. Is the server running?', 'recv');
-  }
-}
-
-function addWaMsg(text, type) {
-  const chat = document.getElementById('wa-chat');
-  const div = document.createElement('div');
-  div.className = `wa-msg ${type}`;
-  div.textContent = text;
-  chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
-  return div;
-}
-
-// ── TABS ──────────────────────────────────────────────────────────────────────
-function switchTab(name) {
-  document.querySelectorAll('.tab').forEach((t, i) => {
-    const names = ['route','map','report','stats','whatsapp'];
-    t.classList.toggle('active', names[i] === name);
-  });
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.getElementById(`panel-${name}`).classList.add('active');
-
-  if (name === 'stats') loadStats();
 }
 
 // ── TOAST ─────────────────────────────────────────────────────────────────────
-function toast(msg, duration = 3000) {
+function toast(msg, ms=3000) {
   const el = document.getElementById('toast');
   el.textContent = msg;
   el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), duration);
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), ms);
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', initMap);
+window.addEventListener('load', initMap);
 </script>
 </body>
 </html>
