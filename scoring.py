@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "data", "user_reports.db")
 
-INCIDENT_RADIUS_KM:   float = 0.35
+INCIDENT_RADIUS_KM:   float = 0.5
 DATASET_WEIGHT:       float = 1.0
 USER_REPORT_WEIGHT:   float = 1.2   # user reports weighted slightly above dataset
 
@@ -32,12 +32,12 @@ NIGHT_PENALTY:        float = 1.45  # 22:00 – 04:59
 EVENING_PENALTY:      float = 1.20  # 18:00 – 21:59
 MORNING_BONUS:        float = 0.85  # 06:00 – 08:59
 
-RISK_SIGMOID_SCALE:   float = 0.75
-COMPOSITE_AVG_WEIGHT: float = 0.60
-COMPOSITE_MIN_WEIGHT: float = 0.40
+RISK_SIGMOID_SCALE:   float = 1.8
+COMPOSITE_AVG_WEIGHT: float = 0.50
+COMPOSITE_MIN_WEIGHT: float = 0.50
 
-SAFE_THRESHOLD:       int   = 72
-CAUTION_THRESHOLD:    int   = 48
+SAFE_THRESHOLD:       int   = 80
+CAUTION_THRESHOLD:    int   = 62
 
 HOUR_TIGHT_WINDOW:    int   = 2     # ≤ 2 h diff → full weight
 HOUR_MID_WINDOW:      int   = 4     # ≤ 4 h diff → partial weight
