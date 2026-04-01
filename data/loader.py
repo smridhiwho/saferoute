@@ -184,9 +184,9 @@ def geocode_description(text: str, seed: int = 0):
 
 # ── Load Safecity CSV from GitHub ────────────────────────────────────────────
 SAFECITY_CSV_URLS = [
-    "https://raw.githubusercontent.com/swkarlekar/safecity/master/1_Dataset/train_data.csv",
-    "https://raw.githubusercontent.com/swkarlekar/safecity/master/1_Dataset/test_data.csv",
-    "https://raw.githubusercontent.com/swkarlekar/safecity/master/1_Dataset/dev_data.csv",
+    "https://raw.githubusercontent.com/swkarlekar/safecity/master/multilabel_classification/train_data.csv",
+"https://raw.githubusercontent.com/swkarlekar/safecity/master/multilabel_classification/test_data.csv",
+"https://raw.githubusercontent.com/swkarlekar/safecity/master/multilabel_classification/dev_data.csv"
 ]
 
 

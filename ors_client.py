@@ -1,85 +1,118 @@
 """
 OpenRouteService client.
+
 Fetches real walking/driving routes for Delhi.
 """
 
+import logging
 import os
+from typing import Dict, List, Optional
+
 import requests
-from typing import Optional, Dict, List
+
+logger = logging.getLogger(__name__)
 
 ORS_BASE = "https://api.openrouteservice.org/v2"
 
-def get_ors_key() -> str:
-    key = os.environ.get("ORS_API_KEY", "")
-    if not key or key == "your_ors_key_here":
-        raise ValueError("ORS_API_KEY not set. Add it to your .env file.")
-    return key
+# Module-level session — reuses TCP connections across geocode + routing calls
+_session = requests.Session()
 
+
+# ---------------------------------------------------------------------------
+# Key helper  (returns None, never raises — callers decide what to do)
+# ---------------------------------------------------------------------------
+
+def get_ors_key() -> Optional[str]:
+    """Return the ORS API key, or None if unset / still a placeholder."""
+    key = os.environ.get("ORS_API_KEY", "").strip()
+    return key if key and not key.startswith("your_") else None
+
+
+# ---------------------------------------------------------------------------
+# Geocoding
+# ---------------------------------------------------------------------------
 
 def geocode(place: str) -> Optional[Dict]:
     """
     Convert a place name to lat/lng using ORS geocoding (Pelias).
     Returns {"lat": float, "lng": float, "label": str} or None.
     """
+    key = get_ors_key()
+    if not key:
+        logger.warning("ORS_API_KEY not set; geocoding skipped.")
+        return None
+
     try:
-        r = requests.get(
+        r = _session.get(
             "https://api.openrouteservice.org/geocode/search",
             params={
-                "api_key": get_ors_key(),
-                "text": place + ", Delhi, India",
-                "size": 1,
+                "api_key":          key,
+                "text":             f"{place}, Delhi, India",
+                "size":             1,
                 "boundary.country": "IND",
             },
             timeout=10,
         )
         r.raise_for_status()
-        data = r.json()
-        features = data.get("features", [])
+        features = r.json().get("features", [])
         if not features:
             return None
-        props = features[0]["properties"]
+
+        props  = features[0]["properties"]
         coords = features[0]["geometry"]["coordinates"]
         return {
-            "lat": round(coords[1], 6),
-            "lng": round(coords[0], 6),
+            "lat":   round(coords[1], 6),
+            "lng":   round(coords[0], 6),
             "label": props.get("label", place),
         }
-    except Exception as e:
-        print(f"  Geocoding failed for '{place}': {e}")
+    except requests.RequestException:
+        logger.exception("Geocoding failed for '%s'", place)
         return None
 
 
+# ---------------------------------------------------------------------------
+# Routing
+# ---------------------------------------------------------------------------
+
 def get_routes(
-    origin_lat: float, origin_lng: float,
-    dest_lat: float, dest_lng: float,
+    origin_lat: float,
+    origin_lng: float,
+    dest_lat: float,
+    dest_lng: float,
     profile: str = "foot-walking",
     alternatives: int = 3,
 ) -> List[Dict]:
     """
     Fetch up to `alternatives` routes from ORS.
-    Returns list of route dicts with geometry coords and summary.
+    Returns a list of route dicts with geometry coords and summary.
+    Returns an empty list on any failure.
     """
+    key = get_ors_key()
+    if not key:
+        logger.warning("ORS_API_KEY not set; routing skipped.")
+        return []
+
+    payload = {
+        "coordinates": [
+            [origin_lng, origin_lat],
+            [dest_lng,   dest_lat],
+        ],
+        "alternative_routes": {
+            "target_count":  alternatives,
+            "weight_factor": 1.6,
+            "share_factor":  0.6,
+        },
+        "instructions": False,
+        "geometry":     True,
+    }
+
     try:
-        payload = {
-            "coordinates": [
-                [origin_lng, origin_lat],
-                [dest_lng, dest_lat],
-            ],
-            "alternative_routes": {
-                "target_count": alternatives,
-                "weight_factor": 1.6,
-                "share_factor": 0.6,
-            },
-            "instructions": True,
-            "instructions_format": "text",
-            "geometry": True,
-        }
-        r = requests.post(
+        r = _session.post(
             f"{ORS_BASE}/directions/{profile}/geojson",
             json=payload,
             headers={
-                "Authorization": get_ors_key(),
-                "Content-Type": "application/json",
+                "Authorization": key,
+                "Content-Type":  "application/json",
             },
             timeout=15,
         )
@@ -89,30 +122,19 @@ def get_routes(
         routes = []
         for i, feature in enumerate(data.get("features", [])):
             summary = feature["properties"]["summary"]
-            coords = feature["geometry"]["coordinates"]  # [[lng, lat], ...]
-            # Extract turn-by-turn steps
-            steps = []
-            for seg in feature["properties"].get("segments", []):
-                for step in seg.get("steps", []):
-                    steps.append({
-                        "instruction": step.get("instruction", ""),
-                        "name": step.get("name", ""),
-                        "distance": step.get("distance", 0),
-                        "duration": step.get("duration", 0),
-                        "type": step.get("type", 0),
-                        "way_points": step.get("way_points", []),
-                    })
-            routes.append({
-                "index": i,
-                "coords": coords,
-                "steps": steps,
-                "distance_m": round(summary.get("distance", 0)),
-                "duration_s": round(summary.get("duration", 0)),
-                "distance_km": round(summary.get("distance", 0) / 1000, 2),
-                "duration_min": round(summary.get("duration", 0) / 60),
-            })
+            coords  = feature["geometry"]["coordinates"]   # [[lng, lat], …]
+            routes.append(
+                {
+                    "index":       i,
+                    "coords":      coords,
+                    "distance_m":  round(summary.get("distance", 0)),
+                    "duration_s":  round(summary.get("duration", 0)),
+                    "distance_km": round(summary.get("distance", 0) / 1000, 2),
+                    "duration_min": round(summary.get("duration", 0) / 60),
+                }
+            )
         return routes
 
-    except Exception as e:
-        print(f"  ORS routing failed: {e}")
+    except requests.RequestException:
+        logger.exception("ORS routing request failed")
         return []
