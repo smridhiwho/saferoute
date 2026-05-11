@@ -20,6 +20,7 @@ import io
 import math
 import random
 import hashlib
+import re
 import pandas as pd
 import numpy as np
 
@@ -74,6 +75,32 @@ DELHI_AREAS = {
     "park":                {"lat": 28.5900, "lng": 77.2000, "spread": 0.030},
     "delhi":               {"lat": 28.6139, "lng": 77.2090, "spread": 0.040},
 }
+
+GENERIC_AREA_KEYS = {"bus", "metro", "market", "park", "delhi"}
+AREA_ALIASES = {
+    "cp": "connaught place",
+    "gk": "greater kailash",
+    "ina": "ina market",
+    "south ex": "south extension",
+    "north campus": "delhi university",
+    "old delhi": "chandni chowk",
+}
+
+AREA_DISPLAY_NAMES = {
+    "aiims": "AIIMS",
+    "rk puram": "RK Puram",
+    "ina market": "INA Market",
+    "noida": "Noida",
+    "gurgaon": "Gurgaon",
+}
+
+MULTILABEL_CATEGORY_MAP = {
+    "Commenting": "verbal_harassment",
+    "Ogling/Facial Expressions/Staring": "ogling",
+    "Touching /Groping": "groping",
+}
+
+MULTILABEL_PRIORITY = ["Touching /Groping", "Ogling/Facial Expressions/Staring", "Commenting"]
 
 # ── Category mappings from Safecity dataset ──────────────────────────────────
 CATEGORY_WEIGHTS = {
@@ -147,27 +174,44 @@ def normalise_category(raw: str) -> str:
     return "other"
 
 # ── Geocode a text description to lat/lng ────────────────────────────────────
-def geocode_description(text: str, seed: int = 0):
+def _area_pattern(key: str) -> re.Pattern:
+    escaped = re.escape(key).replace(r"\ ", r"\s+")
+    return re.compile(rf"(?<![a-z0-9]){escaped}(?![a-z0-9])", re.IGNORECASE)
+
+
+def _canonical_area_key(key: str) -> str:
+    return AREA_ALIASES.get(key, key)
+
+
+def _display_area_name(key: str) -> str:
+    return AREA_DISPLAY_NAMES.get(key, key.title())
+
+
+def geocode_description(text: str, seed: int = 0, allow_generic: bool = True):
     """
     Find the best area match in text, return lat/lng with realistic spread.
     Uses deterministic randomness (seeded by text hash) so coords are stable.
     """
     if not isinstance(text, str):
         text = ""
-    lower = text.lower()
-
     matched_area = None
     matched_key = None
 
     # Try longest match first for specificity
-    sorted_keys = sorted(DELHI_AREAS.keys(), key=len, reverse=True)
+    sorted_keys = sorted(
+        [k for k in DELHI_AREAS if allow_generic or k not in GENERIC_AREA_KEYS],
+        key=len,
+        reverse=True,
+    )
     for key in sorted_keys:
-        if key in lower:
-            matched_area = DELHI_AREAS[key]
-            matched_key = key
+        if _area_pattern(key).search(text):
+            matched_key = _canonical_area_key(key)
+            matched_area = DELHI_AREAS[matched_key]
             break
 
     if not matched_area:
+        if not allow_generic:
+            return None, None, None
         # Default to central Delhi with wide spread
         matched_area = DELHI_AREAS["delhi"]
         matched_key = "delhi"
@@ -184,9 +228,9 @@ def geocode_description(text: str, seed: int = 0):
 
 # ── Load Safecity CSV from GitHub ────────────────────────────────────────────
 SAFECITY_CSV_URLS = [
-    "https://raw.githubusercontent.com/swkarlekar/safecity/master/multilabel_classification/train_data.csv",
-"https://raw.githubusercontent.com/swkarlekar/safecity/master/multilabel_classification/test_data.csv",
-"https://raw.githubusercontent.com/swkarlekar/safecity/master/multilabel_classification/dev_data.csv"
+    "https://raw.githubusercontent.com/swkarlekar/safecity/master/multilabel_classification/train.csv.zip",
+    "https://raw.githubusercontent.com/swkarlekar/safecity/master/multilabel_classification/test.csv.zip",
+    "https://raw.githubusercontent.com/swkarlekar/safecity/master/multilabel_classification/dev.csv.zip",
 ]
 
 
@@ -198,7 +242,10 @@ def load_safecity_from_github() -> pd.DataFrame:
         try:
             r = requests.get(url, timeout=15)
             r.raise_for_status()
-            frames.append(pd.read_csv(io.StringIO(r.text)))
+            if url.endswith(".zip"):
+                frames.append(pd.read_csv(io.BytesIO(r.content), compression="zip"))
+            else:
+                frames.append(pd.read_csv(io.StringIO(r.text)))
             print(f"  Loaded {url.split('/')[-1]}")
         except Exception as e:
             print(f"  Skipped {url.split('/')[-1]}: {e}")
@@ -216,7 +263,9 @@ def process_safecity_df(df: pd.DataFrame) -> list:
     incidents = []
     inc_id = 1
 
-    # Identify description and category columns flexibly
+    # Identify description and category columns flexibly.
+    # The public Safecity data is multi-label, so prefer those known label columns
+    # over treating one binary label column as the whole category.
     desc_col = None
     cat_col = None
     for c in df.columns:
@@ -228,26 +277,45 @@ def process_safecity_df(df: pd.DataFrame) -> list:
 
     if desc_col is None:
         desc_col = df.columns[0]
-    if cat_col is None and len(df.columns) > 1:
+    multilabel_cols = [c for c in MULTILABEL_PRIORITY if c in df.columns]
+    if cat_col is None and not multilabel_cols and len(df.columns) > 1:
         cat_col = df.columns[1]
 
-    print(f"  Using columns: description='{desc_col}', category='{cat_col}'")
+    label_info = f"multi-label={multilabel_cols}" if multilabel_cols else f"category='{cat_col}'"
+    print(f"  Using columns: description='{desc_col}', {label_info}")
 
     # Group by area+category to count reports per hotspot
     area_cat_counts: dict = {}
-    rows = df[[desc_col, cat_col]].dropna(subset=[desc_col]).to_dict("records")
+    cols = [desc_col] + (multilabel_cols if multilabel_cols else ([cat_col] if cat_col else []))
+    rows = df[cols].dropna(subset=[desc_col]).to_dict("records")
+    skipped_without_area = 0
+    skipped_without_label = 0
 
     for row in rows:
         desc = str(row.get(desc_col, ""))
-        cat_raw = str(row.get(cat_col, "other")) if cat_col else "other"
-        cat = normalise_category(cat_raw)
-        lat, lng, area_key = geocode_description(desc)
+        if multilabel_cols:
+            cat = None
+            for col in multilabel_cols:
+                if int(row.get(col, 0) or 0) == 1:
+                    cat = MULTILABEL_CATEGORY_MAP[col]
+                    break
+            if cat is None:
+                skipped_without_label += 1
+                continue
+        else:
+            cat_raw = str(row.get(cat_col, "other")) if cat_col else "other"
+            cat = normalise_category(cat_raw)
+
+        lat, lng, area_key = geocode_description(desc, allow_generic=False)
+        if not area_key:
+            skipped_without_area += 1
+            continue
 
         bucket = f"{area_key}|{cat}"
         if bucket not in area_cat_counts:
             area_cat_counts[bucket] = {
                 "lat": lat, "lng": lng,
-                "area": area_key.title(),
+                "area": _display_area_name(area_key),
                 "category": cat,
                 "descriptions": [],
                 "count": 0,
@@ -288,6 +356,10 @@ def process_safecity_df(df: pd.DataFrame) -> list:
             })
             inc_id += 1
 
+    if skipped_without_area:
+        print(f"  Skipped {skipped_without_area} citywide reports without a specific mapped area.")
+    if skipped_without_label:
+        print(f"  Skipped {skipped_without_label} reports without a supported incident label.")
     print(f"  Processed into {len(incidents)} geocoded incidents.")
     return incidents
 

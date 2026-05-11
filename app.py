@@ -214,6 +214,7 @@ def get_route():
                 "duration_s":   route_data["duration_s"],
             }
         )
+        scored["steps"] = route_data.get("steps", [])
         # AI advisory only for the top route to conserve API quota
         if route_data["index"] == 0:
             scored["ai_advice"] = get_ai_safety_advice(scored, origin_name, dest_name, hour)

@@ -415,6 +415,57 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;font-weight:300;overflow:
 .chip-warn{background:rgba(224,72,72,0.07);color:#b83030;border:1px solid rgba(224,72,72,0.18);}
 .chip-ok{background:rgba(61,184,122,0.08);color:#27855a;border:1px solid rgba(61,184,122,0.2);}
 
+.decision-panel{
+  background:white;
+  border:1.5px solid rgba(15,26,21,0.09);
+  border-radius:14px;
+  padding:0.95rem;
+  margin-bottom:0.75rem;
+}
+.decision-title{
+  font-family:'Playfair Display',serif;
+  font-size:1rem;font-weight:700;color:var(--ink);
+  margin-bottom:0.45rem;
+}
+.decision-copy{font-size:0.84rem;line-height:1.55;color:rgba(15,26,21,0.68);}
+.decision-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;margin-top:0.75rem;}
+.decision-metric{
+  background:rgba(15,26,21,0.035);
+  border:1px solid rgba(15,26,21,0.06);
+  border-radius:10px;
+  padding:0.55rem 0.45rem;
+}
+.dm-val{font-size:0.9rem;font-weight:700;color:var(--ink);line-height:1.1;}
+.dm-lbl{font-size:0.63rem;color:rgba(15,26,21,0.42);text-transform:uppercase;letter-spacing:0.05em;margin-top:0.18rem;}
+.action-row{display:grid;grid-template-columns:1fr 1fr;gap:0.55rem;margin:0.75rem 0;}
+.action-btn{
+  display:flex;align-items:center;justify-content:center;gap:0.35rem;
+  border:none;border-radius:10px;
+  padding:0.72rem 0.65rem;
+  font-family:'DM Sans',sans-serif;
+  font-size:0.82rem;font-weight:500;
+  cursor:pointer;text-decoration:none;
+}
+.action-share{background:var(--forest);color:var(--cream);}
+.action-emergency{background:#e04848;color:white;}
+.concern-list{display:flex;flex-direction:column;gap:0.45rem;margin:0.75rem 0;}
+.concern-item{
+  display:flex;align-items:flex-start;gap:0.55rem;
+  padding:0.55rem 0.65rem;
+  border-radius:10px;
+  background:rgba(224,72,72,0.055);
+  border:1px solid rgba(224,72,72,0.12);
+}
+.concern-dot{width:8px;height:8px;border-radius:50%;background:#e04848;margin-top:0.32rem;flex-shrink:0;}
+.concern-main{font-size:0.8rem;color:rgba(15,26,21,0.72);line-height:1.35;}
+.concern-main strong{color:var(--ink);font-weight:600;}
+.practical-list{display:grid;gap:0.45rem;margin-top:0.75rem;}
+.practical-item{
+  display:flex;gap:0.5rem;align-items:flex-start;
+  font-size:0.8rem;line-height:1.4;color:rgba(15,26,21,0.68);
+}
+.practical-item b{color:var(--ink);font-weight:600;}
+
 /* AI box */
 .ai-box{
   background:rgba(26,47,37,0.04);
@@ -636,6 +687,13 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;font-weight:300;overflow:
 .c-safe{background:var(--safe);}
 .c-caution{background:var(--caution);}
 .c-danger{background:var(--danger);}
+
+@media (max-width: 420px) {
+  .decision-grid{grid-template-columns:1fr;}
+  .qr-actions{flex-wrap:wrap;}
+  .qr-btn-nav{flex-basis:100%;}
+  .qr-btn-detail{flex:1;}
+}
 </style>
 </head>
 <body>
@@ -858,23 +916,52 @@ function getInputs() {
   return { origin, dest };
 }
 
+function esc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, ch => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  }[ch]));
+}
+
+function currentPosition() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('Geolocation unavailable'));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      timeout: 9000,
+      maximumAge: 60000,
+    });
+  });
+}
+
+async function buildRouteBody({ requireOrigin = true } = {}) {
+  const { origin, dest } = getInputs();
+  if (!dest) throw new Error('Enter a destination.');
+  const body = { destination: dest, hour: S.hour, profile: S.travel };
+  if (origin) {
+    body.origin = origin;
+    return body;
+  }
+  if (requireOrigin) throw new Error('Enter both start and destination.');
+
+  toast('Getting your current location...');
+  const pos = await currentPosition();
+  body.origin = 'Current location';
+  body.origin_lat = pos.coords.latitude;
+  body.origin_lng = pos.coords.longitude;
+  return body;
+}
+
 // ── QUICK CHECK ───────────────────────────────────────────────────────────────
 async function doQuickCheck() {
-  const { origin, dest } = getInputs();
-  if (!dest) { toast('Enter a destination.'); return; }
-
   const btn = document.getElementById('btn-quick');
   btn.disabled = true; btn.classList.add('loading');
   document.getElementById('time-drawer').classList.remove('open');
 
   try {
-    // Use origin or default to current location placeholder
-    const body = {
-      origin: origin || 'Current location, Delhi',
-      destination: dest,
-      hour: S.hour,
-      profile: S.travel,
-    };
+    const body = await buildRouteBody({ requireOrigin: false });
     const res = await fetch('/api/route', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -895,7 +982,7 @@ async function doQuickCheck() {
     document.getElementById('quick-result').classList.add('show');
 
   } catch(e) {
-    toast('Connection error. Is the server running?');
+    toast(e.message || 'Connection error. Is the server running?');
   } finally {
     btn.disabled = false; btn.classList.remove('loading');
   }
@@ -907,6 +994,12 @@ function renderQuickResult(data) {
   const themeColor = { safe: '#3db87a', caution: '#e8a030', danger: '#e04848' }[theme];
   const topAlert = r.alerts && r.alerts.length > 0 ? r.alerts[0] : null;
   const topIncidentType = topAlert ? topAlert.category_label : null;
+  const routeName = `${data.origin.name.split(',')[0]} to ${data.destination.name.split(',')[0]}`;
+  const practicalAdvice = r.score >= 70
+    ? 'Lower-risk route found. Use navigation for turn-by-turn directions and share the trip before leaving.'
+    : r.score >= 45
+      ? 'Moderate-risk route. Stay on the shown route, avoid side lanes, and keep someone updated.'
+      : 'High-risk route. Check alternatives, change travel mode, or travel with someone if possible.';
 
   // Tip based on hour
   const timeEmoji = S.hour >= 20 || S.hour < 5 ? '🌙' : S.hour >= 17 ? '🌆' : '☀️';
@@ -921,7 +1014,7 @@ function renderQuickResult(data) {
       </div>
       <div class="qr-info">
         <div class="qr-route-name">
-          ${data.origin.name.split(',')[0]} to ${data.destination.name.split(',')[0]}
+          ${esc(routeName)}
         </div>
         <div class="qr-meta">
           <span>🚶 ${r.distance_km} km</span>
@@ -933,19 +1026,20 @@ function renderQuickResult(data) {
 
     ${topIncidentType ? `
     <div class="qr-top-alert theme-${theme}">
-      ⚠ ${topIncidentType} reported near this route
+      ⚠ ${esc(topIncidentType)} reported near this route
     </div>` : ''}
 
-    ${r.ai_advice ? `
-    <div class="qr-advice theme-${theme}">${r.ai_advice}</div>` : `
-    <div class="qr-advice theme-${theme}">${r.advice}</div>`}
+    <div class="qr-advice theme-${theme}">${esc(practicalAdvice)}</div>
 
     <div class="qr-actions theme-${theme}">
       <button class="qr-btn-nav theme-${theme}" onclick="startNav()">
         Navigate ↗
       </button>
+      <button class="qr-btn-detail theme-${theme}" onclick="shareRoute()">
+        Share trip
+      </button>
       <button class="qr-btn-detail theme-${theme}" onclick="expandToPlan()">
-        See all routes
+        Details
       </button>
       <button class="qr-btn-close theme-${theme}" onclick="closeQuickResult()">×</button>
     </div>
@@ -964,9 +1058,6 @@ function expandToPlan() {
 
 // ── PLAN ROUTE ────────────────────────────────────────────────────────────────
 async function doPlanRoute() {
-  const { origin, dest } = getInputs();
-  if (!origin || !dest) { toast('Enter both start and destination.'); return; }
-
   const btn = document.getElementById('btn-plan');
   btn.disabled = true; btn.classList.add('loading');
   document.getElementById('time-drawer').classList.remove('open');
@@ -974,10 +1065,11 @@ async function doPlanRoute() {
   clearRouteLayers();
 
   try {
+    const body = await buildRouteBody({ requireOrigin: true });
     const res = await fetch('/api/route', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ origin, destination: dest, hour: S.hour, profile: S.travel }),
+      body: JSON.stringify(body),
     });
     const data = await res.json();
     if (data.error) { toast(data.error); return; }
@@ -990,7 +1082,7 @@ async function doPlanRoute() {
     setSheetState('half');
 
   } catch(e) {
-    toast('Connection error. Is the server running?');
+    toast(e.message || 'Connection error. Is the server running?');
   } finally {
     btn.disabled = false; btn.classList.remove('loading');
   }
@@ -1011,15 +1103,32 @@ function clearRouteLayers() {
   if (S.markerB) { S.map.removeLayer(S.markerB); S.markerB = null; }
 }
 
+function drawSafetySegments(route, weight = 6, opacity = 1) {
+  const coords = route.coords || [];
+  if (coords.length < 2) return [];
+  const segMeta = route.segment_colors || [];
+  const segmentCount = Math.max(1, segMeta.length || 12);
+  const chunk = Math.max(1, Math.floor((coords.length - 1) / segmentCount));
+  const layers = [];
+
+  for (let start = 0; start < coords.length - 1; start += chunk) {
+    const end = Math.min(coords.length - 1, start + chunk);
+    const latlngs = coords.slice(start, end + 1).map(c => [c[1], c[0]]);
+    const metaIdx = Math.min(segMeta.length - 1, Math.floor(start / chunk));
+    const color = segMeta[metaIdx]?.color || scoreColor(route.score);
+    layers.push(L.polyline(latlngs, {
+      color, weight, opacity, lineCap: 'round', lineJoin: 'round',
+    }).addTo(S.map));
+  }
+  return layers;
+}
+
 function renderBestRouteOnMap(route, data) {
   const latlngs = route.coords.map(c => [c[1], c[0]]);
 
   const shadow = L.polyline(latlngs, { color:'rgba(0,0,0,0.3)', weight:8, opacity:0.4 }).addTo(S.map);
-  const line = L.polyline(latlngs, {
-    color: scoreColor(route.score), weight: 5, opacity: 1,
-    lineCap: 'round', lineJoin: 'round',
-  }).addTo(S.map);
-  S.routeLayers.push(shadow, line);
+  const safetyLines = drawSafetySegments(route, 5, 1);
+  S.routeLayers.push(shadow, ...safetyLines);
 
   placeMarkers(data);
   S.map.fitBounds(L.polyline(latlngs).getBounds(), { padding: [80, 80], maxZoom: 15 });
@@ -1031,15 +1140,20 @@ function renderAllRoutesOnMap(data) {
     const latlngs = route.coords.map(c => [c[1], c[0]]);
     const isActive = i === S.activeIdx;
     const shadow = L.polyline(latlngs, { color:'rgba(0,0,0,0.25)', weight: isActive ? 9 : 5, opacity: isActive ? 0.4 : 0.15 }).addTo(S.map);
-    const line = L.polyline(latlngs, {
-      color: colors[i % colors.length],
-      weight: isActive ? 6 : 3.5,
-      opacity: isActive ? 1 : 0.4,
-      dashArray: i === 0 ? null : '10 6',
-      lineCap: 'round', lineJoin: 'round',
-    }).addTo(S.map);
-    line.on('click', () => selectRoute(i));
-    S.routeLayers.push(shadow, line);
+    let lines;
+    if (isActive) {
+      lines = drawSafetySegments(route, 6, 1);
+    } else {
+      lines = [L.polyline(latlngs, {
+        color: colors[i % colors.length],
+        weight: 3.5,
+        opacity: 0.42,
+        dashArray: '10 6',
+        lineCap: 'round', lineJoin: 'round',
+      }).addTo(S.map)];
+    }
+    lines.forEach(line => line.on('click', () => selectRoute(i)));
+    S.routeLayers.push(shadow, ...lines);
   });
 
   placeMarkers(data);
@@ -1052,7 +1166,7 @@ function placeMarkers(data) {
 
   S.markerA = L.circleMarker([origin.lat, origin.lng], {
     radius: 7, fillColor: 'white', color: '#0f1a15', weight: 2.5, fillOpacity: 1,
-  }).bindPopup(`<b>From:</b> ${origin.name}`).addTo(S.map);
+  }).bindPopup(`<b>From:</b> ${esc(origin.name)}`).addTo(S.map);
 
   const destIcon = L.divIcon({
     className: '',
@@ -1060,7 +1174,7 @@ function placeMarkers(data) {
     iconSize: [26, 26], iconAnchor: [13, 26],
   });
   S.markerB = L.marker([destination.lat, destination.lng], { icon: destIcon })
-    .bindPopup(`<b>To:</b> ${destination.name}`).addTo(S.map);
+    .bindPopup(`<b>To:</b> ${esc(destination.name)}`).addTo(S.map);
 }
 
 function selectRoute(idx) {
@@ -1083,15 +1197,88 @@ function setSheetState(state) {
   if (state !== 'hidden') el.classList.add(state);
 }
 
+function fastestRoute(data) {
+  return data.routes.reduce((fastest, r) => (
+    r.duration_min < fastest.duration_min ? r : fastest
+  ), data.routes[0]);
+}
+
+function routeSummaryText(data, route) {
+  const from = data.origin.name.split(',')[0];
+  const to = data.destination.name.split(',')[0];
+  const alerts = (route.alerts || []).slice(0, 2)
+    .map(a => `${a.category_label} near ${a.area}`)
+    .join('; ') || 'no major nearby incident clusters';
+  return `SafeRoute: ${from} to ${to}, ${route.distance_km} km, ${route.duration_min} min, safety ${route.score}/100 (${route.tier_label}). Concerns: ${alerts}.`;
+}
+
+async function shareRoute() {
+  if (!S.routeData) return;
+  const route = S.routeData.routes[S.activeIdx];
+  const text = routeSummaryText(S.routeData, route);
+  try {
+    if (navigator.share) await navigator.share({ title: 'SafeRoute trip', text });
+    else await navigator.clipboard.writeText(text);
+    toast('Trip summary ready to share.');
+  } catch(e) {
+    toast('Could not share from this browser.');
+  }
+}
+
+function buildDecisionPanel(data, route) {
+  const fastest = fastestRoute(data);
+  const activeAlerts = (route.alerts || []).slice(0, 4);
+  const scoreGain = route.score - fastest.score;
+  const timeDelta = route.duration_min - fastest.duration_min;
+  const verdict = route.score >= 70
+    ? 'This is the best practical option in the routes found. It keeps you on lower-risk stretches while staying close to the fastest travel time.'
+    : route.score >= 45
+      ? 'This route is usable, but it has incident clusters nearby. Prefer busier roads, keep the trip visible to someone you trust, and avoid detours into side lanes.'
+      : 'This route has enough nearby reports that you should consider changing time, mode, or destination approach. Use it only if you have a strong reason.';
+
+  return `
+    <div class="decision-panel">
+      <div class="decision-title">Practical Safety Read</div>
+      <div class="decision-copy">${esc(verdict)}</div>
+      <div class="decision-grid">
+        <div class="decision-metric"><div class="dm-val">${route.score}/100</div><div class="dm-lbl">Safety</div></div>
+        <div class="decision-metric"><div class="dm-val">${timeDelta > 0 ? '+' : ''}${timeDelta} min</div><div class="dm-lbl">Vs fastest</div></div>
+        <div class="decision-metric"><div class="dm-val">${scoreGain > 0 ? '+' : ''}${scoreGain}</div><div class="dm-lbl">Safety gain</div></div>
+      </div>
+      <div class="action-row">
+        <button class="action-btn action-share" onclick="shareRoute()">Share trip</button>
+        <a class="action-btn action-emergency" href="tel:112">Call 112</a>
+      </div>
+      ${activeAlerts.length ? `
+        <div class="concern-list">
+          ${activeAlerts.map(a => `
+            <div class="concern-item">
+              <div class="concern-dot"></div>
+              <div class="concern-main">
+                <strong>${esc(a.category_label)}</strong> near ${esc(a.area)}, about ${esc(a.distance_m)} m from the route, ${esc(a.reports)} report${a.reports === 1 ? '' : 's'}.
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+      <div class="practical-list">
+        <div class="practical-item"><span>1.</span><div><b>Stay visible:</b> prefer the colored green stretches and main-road sections when the map shows caution or red.</div></div>
+        <div class="practical-item"><span>2.</span><div><b>Use the data:</b> if the score is low after 8pm, switch to driving/ride-hail or travel earlier when possible.</div></div>
+        <div class="practical-item"><span>3.</span><div><b>Report back:</b> one tap on the map updates future route scoring for other women.</div></div>
+      </div>
+    </div>
+  `;
+}
+
 function renderBottomSheet(data) {
   const best = data.routes[0];
 
   // Peek content
   document.getElementById('bs-peek').innerHTML = `
-    <div class="bs-peek-row" onclick="setSheetState(S.sheetState==='half'?'full':'half')">
+      <div class="bs-peek-row" onclick="setSheetState(S.sheetState==='half'?'full':'half')">
       <div class="bs-peek-score ${scoreTier(best.score)}">${best.score}</div>
       <div class="bs-peek-info">
-        <div class="bs-peek-title">${best.label}</div>
+        <div class="bs-peek-title">${esc(best.label)}</div>
         <div class="bs-peek-meta">${best.distance_km} km · ${best.duration_min} min · ${best.total_incidents_nearby} incidents nearby</div>
       </div>
       <button class="bs-nav-btn" onclick="event.stopPropagation();startNav()">Navigate</button>
@@ -1099,7 +1286,9 @@ function renderBottomSheet(data) {
   `;
 
   // Full content
+  const active = data.routes[S.activeIdx];
   let html = `
+    ${buildDecisionPanel(data, active)}
     <div class="routes-hdr">
       <div class="routes-hdr-title">Route Options</div>
       <div class="routes-count">${data.routes.length} compared by safety</div>
@@ -1114,7 +1303,7 @@ function renderBottomSheet(data) {
         <div class="rc-score ${scoreTier(r.score)}">${r.score}</div>
         <div class="rc-info">
           <div class="rc-label">
-            ${r.label}
+            ${esc(r.label)}
             ${i === 0 ? '<span class="best-tag">Safest</span>' : ''}
           </div>
           <div class="rc-meta">
@@ -1129,7 +1318,7 @@ function renderBottomSheet(data) {
       </div>
       <div class="alert-row">
         ${alerts.length
-          ? alerts.map(a => `<span class="chip chip-warn">⚠ ${a.category_label}</span>`).join('')
+          ? alerts.map(a => `<span class="chip chip-warn">⚠ ${esc(a.category_label)}</span>`).join('')
           : '<span class="chip chip-ok">✓ No major incidents on route</span>'}
       </div>
     </div>`;
@@ -1137,13 +1326,12 @@ function renderBottomSheet(data) {
 
   if (best.ai_advice) {
     html += `
-    <div class="ai-box">
+      <div class="ai-box">
       <div class="ai-label">✦ AI Safety Advisory</div>
-      <div class="ai-text">${best.ai_advice}</div>
+      <div class="ai-text">${esc(best.ai_advice)}</div>
     </div>`;
   }
 
-  const active = data.routes[S.activeIdx];
   if (active.steps && active.steps.length > 0) {
     html += buildStepList(active.steps, active.score);
   }
@@ -1175,7 +1363,7 @@ function buildStepList(steps, routeScore) {
     <div class="step-item">
       <div class="step-icon">${icon}</div>
       <div class="step-body">
-        <div class="step-instr">${step.instruction || step.name || 'Continue'}</div>
+        <div class="step-instr">${esc(step.instruction || step.name || 'Continue')}</div>
         <div class="step-dist">${dist}</div>
         ${safetyTag}
       </div>
